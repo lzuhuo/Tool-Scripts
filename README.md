@@ -17,4 +17,6 @@ sudo ldconfig
 
 # run verification
 openssl version
-OpenSSL 1.1.1h  22 Sep 2020
+
+sed -i 's/DEFAULT@SECLEVEL=2/DEFAULT@SECLEVEL=1/g' /etc/ssl/openssl.cnf
+
