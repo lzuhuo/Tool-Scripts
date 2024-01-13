@@ -20,3 +20,13 @@ openssl version
 
 sed -i 's/DEFAULT@SECLEVEL=2/DEFAULT@SECLEVEL=1/g' /etc/ssl/openssl.cnf
 
+# USE 100% FREE lvm
+
+fdisk -l
+
+pvresize /dev/sdaX
+
+lvresize -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
+
+resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+
