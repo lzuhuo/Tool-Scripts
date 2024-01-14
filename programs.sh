@@ -35,7 +35,7 @@ cd ..
 #Instalação de aplicativos Snap
 snap install postman
 
-rm -r programas
-rm -r winbox-installer
+sudo rm -r programas
+sudo rm -r winbox-installer
 
 sudo apt autoremove -y
