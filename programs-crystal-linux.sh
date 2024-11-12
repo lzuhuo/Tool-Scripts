@@ -1,3 +1,8 @@
+echo 'Edit Mirror List'
+echo 'And uncomment lines abouve'
+echo '#[multilib]'
+echo '#Include = /etc/pacman.d/mirrorlist'
+
 #Edit Mirror List
 sudo nano /etc/pacman.conf
 #Uncomment lines above without #
