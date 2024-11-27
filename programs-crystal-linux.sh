@@ -22,7 +22,7 @@ ame -S google-chrome microsoft-edge-stable-bin zoom --noconfirm
 ame -S visual-studio-code-bin azuredatastudio-bin dbeaver-ce-latest postman-bin --noconfirm
 
 #Download de Programas Infra
-ame -S freedownloadmanager realvnc-vnc-viewer ferdium-bin winbox3 inetutils --noconfirm
+ame -S freedownloadmanager realvnc-vnc-viewer ferdium-bin winbox3 inetutils extension-manager keepass --noconfirm
 
 #Download de Programas Utilitarios
 ame -S wine-mono microsip realvnc-vnc-viewer gtkglext anydesk-bin --noconfirm
