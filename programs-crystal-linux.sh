@@ -15,6 +15,9 @@ sudo pacman -Syu
 #Instalação de Programas via terminal
 sudo pacman -S tilix flameshot gnome-tweaks gnome-browser-connector firefox inetutils
 
+#Instalação de Programas para Openvpn
+sudo pacman -S openvpn networkmanager-openvpn network-manager-applet
+
 #Download de Programas Padrão
 ame -S google-chrome microsoft-edge-stable-bin zoom --noconfirm
 
