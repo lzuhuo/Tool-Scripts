@@ -3,7 +3,7 @@ sudo apt update
 sudo apt upgrade -y
 
 #Instalação de Programas via terminal
-sudo apt install tilix flameshot gnome-tweaks wireshark chrome-gnome-shell thunderbird inetutils-*  -y
+sudo apt install tilix flameshot git curl gnome-tweaks wireshark chrome-gnome-shell thunderbird inetutils-*  -y
 sudo apt install flatpak -y
 sudo apt install gnome-software-plugin-flatpak -y
 flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
