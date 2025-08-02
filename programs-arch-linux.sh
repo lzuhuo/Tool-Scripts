@@ -2,10 +2,13 @@
 sudo pacman -Syu
 
 #Instalação de Programas via terminal
-sudo pacman -S flameshot gnome-tweaks gnome-browser-connector firefox inetutils
+sudo pacman -S git curl wget flameshot gnome-tweaks gnome-browser-connector firefox inetutils
 
 #Instalação de Programas para Openvpn
 sudo pacman -S openvpn networkmanager-openvpn network-manager-applet
+
+#Instalaćão de Requisitos
+sudo pacman -S ttf-liberation  xcb-util-cursor  qt5-remoteobjects  qt5-webengine
 
 #Instalação do ame - Amethyst
 sudo pacman -S --needed base-devel pacman-contrib cargo
@@ -32,3 +35,6 @@ ame -S realvnc-vnc-viewer ferdium-bin winbox inetutils extension-manager keepass
 #Download de Programas Utilitarios
 ame -S wine-mono microsip realvnc-vnc-viewer gtkglext anydesk-bin ulauncher --noconfirm
 
+#Download de Programas Especificos
+ame -S gtkd --noconfirm
+ame -S tilix --noconfirm
