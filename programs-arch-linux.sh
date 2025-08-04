@@ -4,6 +4,11 @@ sudo pacman -Syu
 #Instalação de Programas via terminal
 sudo pacman -S git curl wget flameshot gnome-tweaks gnome-browser-connector firefox inetutils
 
+#Instalação Pipeware
+sudo pacman -S pipewire pipewire-pulse pipewire-alsa pipewire-jack wireplumber
+systemctl --user enable pipewire pipewire-pulse wireplumber
+systemctl --user start pipewire pipewire-pulse wireplumber
+
 #Instalação de Programas para Openvpn
 sudo pacman -S openvpn networkmanager-openvpn network-manager-applet
 
