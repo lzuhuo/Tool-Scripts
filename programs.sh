@@ -22,18 +22,19 @@ sudo apt install -fy
 cd ..
 
 #Instalação de aplicativos Flatpak
-flatpak install flathub com.mattjakeman.ExtensionManager
-flatpak install flathub com.getpostman.Postman
-flatpak install flathub com.mikrotik.WinBox
-flatpak install flathub org.keepassxc.KeePassXC
-flatpak install flathub us.zoom.Zoom
-flatpak install flathub com.google.Chrome
-flatpak install flathub org.freedownloadmanager.Manager
-flatpak install flathub com.microsoft.Edge
-flatpak install flathub io.dbeaver.DBeaverCommunity
-flatpak install flathub com.anydesk.Anydesk
-flatpak install flathub org.ferdium.Ferdium
-flatpak install flathub com.visualstudio.code
+flatpak install -y --noninteractive flathub com.mattjakeman.ExtensionManager
+flatpak install -y --noninteractive flathub com.getpostman.Postman
+flatpak install -y --noninteractive flathub com.mikrotik.WinBox
+flatpak install -y --noninteractive flathub org.keepassxc.KeePassXC
+flatpak install -y --noninteractive flathub us.zoom.Zoom
+flatpak install -y --noninteractive flathub com.google.Chrome
+flatpak install -y --noninteractive flathub org.freedownloadmanager.Manager
+flatpak install -y --noninteractive flathub com.microsoft.Edge
+flatpak install -y --noninteractive flathub io.dbeaver.DBeaverCommunity
+flatpak install -y --noninteractive flathub com.anydesk.Anydesk
+flatpak install -y --noninteractive flathub org.ferdium.Ferdium
+flatpak install -y --noninteractive flathub com.visualstudio.code
+
 
 sudo rm -r programas
 sudo apt update
