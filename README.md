@@ -26,3 +26,44 @@ Os scripts foram desenvolvidos para:
 ---
 
 ## 📂 Estrutura do Projeto
+
+```plaintext
+Tool-Scripts/
+├── Linux/
+│   ├── fedora-install.sh
+│   ├── ubuntu-install.sh
+│   └── cleanup.sh
+├── MacOS/
+│   └── brew-install.sh
+├── Windows/
+│   ├── install.ps1
+│   └── setup.bat
+└── README.md
+
+
+## ⚙️ Instalação
+
+```bash
+# Linux
+chmod +x fedora-install.sh
+./fedora-install.sh
+
+
+# macOS
+chmod +x brew-install.sh
+./brew-install.sh
+
+
+Obs: O script já instala o Homebrew automaticamente caso não esteja presente.
+
+
+# Windows (PowerShell)
+.\install.ps1
+
+
+:: Windows (Batch)
+setup.bat
+
+
+
+Assim, toda a parte de instalação está encapsulada em blocos de código Markdown, sem nada fora.
