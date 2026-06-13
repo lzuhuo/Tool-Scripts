@@ -6,13 +6,13 @@ Este projeto foi criado para facilitar o setup inicial de máquinas novas e padr
 ---
 
 ## 📑 Índice
-- [Visão Geral](#-visão-geral)
-- [Estrutura do Projeto](#-estrutura-do-projeto)
-- [Instalação](#-instalação)
-- [Scripts Disponíveis](#-scripts-disponíveis)
-- [Compatibilidade](#-compatibilidade)
-- [Contribuição](#-contribuição)
-- [Licença](#-licença)
+- Visão Geral
+- Estrutura do Projeto
+- Instalação
+- Scripts Disponíveis
+- Compatibilidade
+- Contribuição
+- Licença
 
 ---
 
@@ -27,7 +27,6 @@ Os scripts foram desenvolvidos para:
 
 ## 📂 Estrutura do Projeto
 
-```plaintext
 Tool-Scripts/
 ├── Linux/
 │   ├── fedora-install.sh
@@ -40,30 +39,71 @@ Tool-Scripts/
 │   └── setup.bat
 └── README.md
 
+---
 
 ## ⚙️ Instalação
 
-```bash
-# Linux
+🐧 Linux
 chmod +x fedora-install.sh
 ./fedora-install.sh
 
-
-# macOS
+🍎 macOS
 chmod +x brew-install.sh
 ./brew-install.sh
 
-
 Obs: O script já instala o Homebrew automaticamente caso não esteja presente.
 
-
-# Windows (PowerShell)
+🪟 Windows (PowerShell)
 .\install.ps1
 
-
-:: Windows (Batch)
+🪟 Windows (Batch)
 setup.bat
 
+---
 
+## 📜 Scripts Disponíveis
 
-Assim, toda a parte de instalação está encapsulada em blocos de código Markdown, sem nada fora.
+Linux:
+- Instalação de pacotes via dnf ou apt
+- Configuração de Flathub
+- Scripts de limpeza e manutenção
+
+macOS:
+- Instalação automática do Homebrew
+- Instalação de pacotes via brew e brew cask
+- Configuração de ambiente de desenvolvimento
+
+Windows:
+- Instalação de programas via winget ou choco
+- Automação de setup inicial
+- Scripts de manutenção
+
+---
+
+## 💻 Compatibilidade
+
+Linux: Fedora, Ubuntu, Debian  
+macOS: Intel e Apple Silicon  
+Windows: 10 e 11  
+
+---
+
+## 🤝 Contribuição
+
+1. Faça um fork do repositório  
+2. Crie uma branch (feature/nova-funcionalidade)  
+3. Commit suas alterações  
+4. Abra um Pull Request  
+
+---
+
+## 📜 Licença
+
+Este projeto está sob a licença MIT.  
+Você pode usar, modificar e distribuir livremente, desde que mantenha os créditos.
+
+---
+
+### ✨ Autor
+
+Desenvolvido por Elizeu
