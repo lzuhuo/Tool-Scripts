@@ -16,3 +16,5 @@ yay -S --noconfirm ferdium-bin keepassxc
 
 # Download de Programas Utilitários (AUR)
 yay -S --noconfirm wine-mono microsip gtkglext anydesk-bin freedownloadmanager-bin
+
+omarchy plugin add https://github.com/rmacy/omarchy-system-monitor --enable
