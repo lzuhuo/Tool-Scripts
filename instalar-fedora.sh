@@ -13,6 +13,8 @@ readonly FEDORA_PACKAGES=(
     gnome-browser-connector
     flatpak
     keepassxc
+    remmina
+    remmina-plugins-vnc
 )
 
 cleanup() {
@@ -60,7 +62,7 @@ sudo dnf upgrade --refresh -y
 sudo dnf install -y "${FEDORA_PACKAGES[@]}"
 
 printf 'Habilitando o Flathub...\n'
-flatpak remote-add --if-not-exists \
+flatpak remote-add --user --if-not-exists \
     flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 printf 'Configurando repositórios oficiais de aplicativos RPM...\n'
@@ -97,16 +99,10 @@ EOF
 
 sudo dnf install -y code google-chrome-stable microsoft-edge-stable
 
-printf 'Baixando RPMs oficiais sem repositório...\n'
+printf 'Baixando RPM oficial sem repositório...\n'
 
-# Os links abaixo são mantidos pelos próprios fornecedores. A validação rpm -qip
-# impede que uma página HTML seja tratada como pacote.
-download_rpm \
-    'https://www.zoiper.com/en/voip-softphone/download/zoiper5/for/linux-rpm' \
-    'zoiper.rpm'
-download_rpm \
-    'https://downloads.realvnc.com/download/file/viewer.files/VNC-Viewer-7.15.1-Linux-x64.rpm' \
-    'vnc-viewer.rpm'
+# O endpoint é mantido pelo fornecedor e redireciona para a versão atual.
+# A validação rpm -qip impede que uma página HTML seja tratada como pacote.
 download_rpm \
     'https://zoom.us/client/latest/zoom_x86_64.rpm' \
     'zoom.rpm'
@@ -126,3 +122,7 @@ readonly FLATPAK_APPS=(
 flatpak install --user --or-update -y flathub "${FLATPAK_APPS[@]}"
 
 printf '\nInstalação concluída.\n'
+printf 'O Azure Data Studio não foi instalado: a Microsoft o aposentou em 28/02/2026.\n'
+printf 'Use o VS Code instalado acima, com as extensões da Microsoft para SQL/Azure.\n'
+printf 'O Remmina foi instalado como cliente VNC/RDP/SSH mantido no Fedora.\n'
+printf 'O Zoiper não foi incluído: o site não fornece um endpoint RPM automatizável confiável.\n'
