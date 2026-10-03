@@ -20,7 +20,7 @@ This repository contains a variety of scripts, each tailored for a specific oper
     *   GNOME extensions installed from `extensions.gnome.org`.
     *   A **manual browser modal** for vendors that block automated downloads (e.g. Zoiper): opens the page, waits for the file in `~/Downloads`, closes the window and installs.
     *   Optional **self-update** from a Git raw URL (set `REPO_RAW_URL`).
-    *   Run `./instalar-ubuntu-26-04.sh --help` for the full option/groups list.
+    *   Run `./instalar-ubuntu-26-04.sh --help` for the full option/groups list. Detailed guide: [docs/ubuntu.md](docs/ubuntu.md).
 *   `programs.sh`: A general-purpose script for Debian-based systems to install common applications via `apt` and `flatpak`. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 *   `lvm-free-ubuntu-server.sh`: A utility for Ubuntu Server administrators to resize an LVM partition, extending it to use all available free space in the volume group. **Warning:** Run with caution and ensure you have backups.
 
