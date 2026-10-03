@@ -6,8 +6,9 @@
 #
 # Estratégia de instalação (preferência decrescente):
 #   1. Pacotes dos repositórios oficiais do Ubuntu (universe/main).
-#   2. Repositórios APT oficiais de terceiros (Chrome, VS Code, Edge,
-#      DBeaver, AnyDesk) e pacotes .deb avulsos (Zoom, FDM, Ferdium).
+#   2. PPAs do Launchpad e repositórios APT oficiais de terceiros
+#      (Ulauncher, Chrome, VS Code, Edge, DBeaver, AnyDesk) e pacotes
+#      .deb avulsos (Zoom, FDM, Ferdium, WiFiman, Zoiper).
 #      Vantagem: atualizam junto com "apt upgrade".
 #   3. Flatpak/Flathub apenas para o que não tem pacote APT confiável
 #      (Postman, WinBox).
@@ -27,7 +28,8 @@
 #   -n, --dry-run     Mostra o que faria, sem alterar o sistema.
 #   --no-upgrade      Pula o "apt upgrade" (só instala o que falta).
 #   --no-self-update  Não tenta atualizar o script pelo Git.
-#   --only <grupo>    Executa só um grupo: apt|repos|deb|flatpak|cleanup
+#   --only <grupo>    Executa só um grupo:
+#                     apt|repos|ppa|deb|flatpak|extensions|dev|manual|cleanup
 #   -h, --help        Mostra esta ajuda.
 #
 # Requisitos: Ubuntu 26.04, internet, usuário com sudo.
@@ -57,6 +59,16 @@ APT_PACKAGES=(
     remmina-plugin-rdp
     remmina-plugin-vnc
     gnome-shell-extension-manager  # substitui o app Flatpak Extension Manager
+    unzip              # usado para instalar extensões GNOME
+    software-properties-common     # fornece add-apt-repository (PPAs)
+    openvpn            # VPN
+    network-manager-openvpn
+    network-manager-openvpn-gnome
+    network-manager-applet
+    inetutils-telnet   # cliente telnet
+    inetutils-traceroute
+    # Obs.: "inetutils-ping" conflita com o iputils-ping padrão do Ubuntu,
+    # por isso o ping nativo foi mantido.
 )
 
 # --- Repositórios APT oficiais de terceiros ------------------------------
@@ -70,15 +82,55 @@ THIRD_PARTY_REPOS=(
     "AnyDesk|https://keys.anydesk.com/repos/DEB-GPG-KEY|http://deb.anydesk.com/|all|main|anydesk"
 )
 
+# --- PPAs (repositórios pessoais do Launchpad) ---------------------------
+# Formato: "Nome|ppa:usuario/ppa|pacotes"
+# Vantagem: o aplicativo passa a atualizar junto com o apt.
+PPAS=(
+    "Ulauncher|ppa:agornostal/ulauncher|ulauncher"
+)
+
 # --- Pacotes .deb avulsos -------------------------------------------------
 # Formato: "Nome|URL|arquivo_local|pacote_dpkg"
-# A URL pode ser "gh:owner/repo" para resolver o .deb amd64 mais recente
+# A URL pode ser "gh:owner/repo[:sufixo]" para resolver o .deb mais recente
 # de um release do GitHub automaticamente.
 DIRECT_DEBS=(
     "Zoom|https://zoom.us/client/latest/zoom_amd64.deb|zoom_amd64.deb|zoom"
     "Free Download Manager|https://files2.freedownloadmanager.org/6/latest/freedownloadmanager.deb|freedownloadmanager.deb|freedownloadmanager"
     "Ferdium|gh:ferdium/ferdium-app|ferdium_amd64.deb|ferdium"
+    "WiFiman Desktop|https://desktop.wifiman.com/wifiman-desktop-1.3.0-amd64.deb|wifiman-desktop.deb|wifiman-desktop"
 )
+
+# --- Download manual (modal de navegador) --------------------------------
+# Aplicativos que exigem interação (login/anti-bot). No final do script é
+# aberta uma janela do navegador na página exata; quando o download é
+# detectado em ~/Downloads, a janela fecha e a instalação continua.
+# Formato: "Nome|URL_da_pagina|padrao_do_arquivo|pacote_dpkg"
+MANUAL_DOWNLOADS=(
+    "Zoiper 5|https://www.zoiper.com/en/voip-softphone/download/zoiper5/for/linux-deb|Zoiper*.deb|zoiper5"
+)
+
+# --- Extensões GNOME (extensions.gnome.org) ------------------------------
+# Instaladas em ~/.local/share/gnome-shell/extensions e (quando possível)
+# habilitadas. Extensões sem suporte à versão do GNOME atual são ignoradas.
+GNOME_EXTENSIONS=(
+    blur-my-shell@aunetx
+    dash-to-dock@micxgx.gmail.com
+    Vitals@CoreCoding.com
+    show-desktop-button@amivaleo
+    compiz-alike-magic-lamp-effect@hermes83.github.com
+    compiz-windows-effect@hermes83.github.com
+)
+
+# --- Ferramentas de desenvolvimento --------------------------------------
+# nvm
+NVM_VERSION="v0.40.8"          # versão do nvm a instalar
+NVM_NODE_VERSION="lts"         # versão do Node a instalar após o nvm ("" pula)
+
+# .NET SDK — instale os canais que quiser (side-by-side). Ex.: (8.0 9.0 10.0)
+DOTNET_CHANNELS=(10.0 8.0)
+
+# Arquivo único com as variáveis de ambiente, carregado pelo ~/.bashrc.
+ENV_FILE="$HOME/.config/instalar-ubuntu/env.sh"
 
 # --- Aplicativos via Flatpak (Flathub) -----------------------------------
 # Apenas o que não tem pacote APT/deb confiável.
@@ -413,6 +465,34 @@ add_third_party_repos() {
     done
 }
 
+# --- PPAs ----------------------------------------------------------------
+add_ppas() {
+    title "Adicionando PPAs (Launchpad)"
+    [ "${#PPAS[@]}" -eq 0 ] && { record SKIP "Sem PPAs configuradas"; return; }
+    have add-apt-repository || { record FAIL "add-apt-repository ausente (instale software-properties-common)"; return; }
+
+    local entry name ppa pkgs
+    for entry in "${PPAS[@]}"; do
+        IFS='|' read -r name ppa pkgs <<< "$entry"
+        local p installed=0
+        for p in $pkgs; do pkg_installed "$p" && installed=1; done
+        if [ "$installed" -eq 1 ]; then
+            record SKIP "$name (já instalado)"; continue
+        fi
+        if [ "$DRY_RUN" -eq 1 ]; then
+            record SKIP "PPA $name (dry-run): $ppa"; continue
+        fi
+        confirm "Adicionar e instalar do $name ($ppa)?" || { record SKIP "$name (recusado)"; continue; }
+        if run_cmd "PPA $name" "$LOG_DIR/ppa_${name// /_}.log" \
+            "${SUDO[@]}" add-apt-repository -y "$ppa"; then
+            run_cmd "apt update (após PPA $name)" "$LOG_DIR/apt_update.log" "${SUDO[@]}" apt-get update
+            # shellcheck disable=SC2086
+            run_cmd "Instalação $name (via PPA)" "$LOG_DIR/ppa_install_${name// /_}.log" \
+                env DEBIAN_FRONTEND=noninteractive "${SUDO[@]}" apt-get install -y $pkgs
+        fi
+    done
+}
+
 # --- Pacotes .deb avulsos -------------------------------------------------
 github_latest_deb() {
     # github_latest_deb <owner/repo> [sufixo]
@@ -421,6 +501,102 @@ github_latest_deb() {
         | grep -oE '"browser_download_url": "[^"]+"' \
         | sed -E 's/.*"(https:[^"]+)"/\1/' \
         | grep -E "${suffix}$" | head -n1
+}
+
+# Abre um modal de navegador na página de download e aguarda o arquivo
+# aparecer em ~/Downloads. Detectado o arquivo válido, fecha a janela.
+# Define a global MANUAL_FILE com o caminho baixado (vazio em caso de falha).
+manual_download() {
+    # manual_download <nome> <url> <padrao>
+    local name="$1" url="$2" pattern="$3"
+    MANUAL_FILE=""
+    local dl_dir; dl_dir="$(xdg-user-dir DOWNLOAD 2>/dev/null || echo "$HOME/Downloads")"
+    mkdir -p "$dl_dir"
+
+    # Detecta navegador disponível.
+    local browser="" profile
+    local b
+    for b in google-chrome-stable google-chrome chromium firefox; do
+        if have "$b"; then browser="$b"; break; fi
+    done
+    if [ -z "$browser" ]; then
+        record FAIL "$name (nenhum navegador encontrado para o modal)"
+        return 1
+    fi
+    if ! have wmctrl; then
+        info "Instalando wmctrl (necessário para fechar o modal)..."
+        "${SUDO[@]}" apt-get install -y wmctrl >>"$LOG_DIR/manual.log" 2>&1 || true
+    fi
+
+    info "Abrindo o navegador na página de download de $name."
+    info "Baixe o arquivo '${pattern}' — o script detecta e continua sozinho."
+
+    profile="$(mktemp -d)"
+    local title="Download $name"
+    # Abre em janela dedicada (perfil isolado) para poder fechar depois.
+    "$browser" --user-data-dir="$profile" --new-window --app="$url" \
+        >>"$LOG_DIR/manual.log" 2>&1 &
+    local bpid=$!
+
+    # Aguarda o arquivo aparecer (até 15 min), ignorando parciais.
+    local found="" waited=0
+    while [ "$waited" -lt 900 ]; do
+        # shellcheck disable=SC2086
+        found="$(find "$dl_dir" -maxdepth 1 -type f -name "$pattern" \
+                    ! -name '*.crdownload' ! -name '*.part' \
+                    -mmin -30 2>/dev/null | head -n1)"
+        if [ -n "$found" ] && [ -s "$found" ]; then
+            # Aguarda o tamanho estabilizar (download em andamento).
+            local s1 s2
+            s1="$(stat -c%s "$found" 2>/dev/null || echo 0)"
+            sleep 2
+            s2="$(stat -c%s "$found" 2>/dev/null || echo 0)"
+            if [ "$s1" = "$s2" ] && [ "$s1" -gt 0 ]; then
+                break
+            fi
+        fi
+        sleep 2; waited=$((waited + 2))
+    done
+
+    # Fecha o modal.
+    if have wmctrl; then
+        wmctrl -c "$title" 2>/dev/null || true
+    fi
+    kill "$bpid" 2>/dev/null || true
+    sleep 1
+    rm -rf "$profile"
+
+    if [ -n "$found" ] && [ -s "$found" ]; then
+        MANUAL_FILE="$found"
+        return 0
+    fi
+    record FAIL "$name (download não detectado em $dl_dir)"
+    return 1
+}
+
+install_manual_downloads() {
+    [ "${#MANUAL_DOWNLOADS[@]}" -eq 0 ] && return
+    title "Downloads manuais (janela do navegador)"
+    local entry name url pattern pkg
+    for entry in "${MANUAL_DOWNLOADS[@]}"; do
+        IFS='|' read -r name url pattern pkg <<< "$entry"
+        if pkg_installed "$pkg"; then
+            record SKIP "$name (já instalado)"; continue
+        fi
+        if [ "$DRY_RUN" -eq 1 ]; then
+            record SKIP "$name (dry-run): modal em $url"; continue
+        fi
+        confirm "Abrir o navegador para baixar $name agora?" \
+            || { record SKIP "$name (recusado)"; continue; }
+
+        manual_download "$name" "$url" "$pattern" || continue
+        [ -n "$MANUAL_FILE" ] || { record FAIL "$name (arquivo não encontrado)"; continue; }
+
+        if run_cmd "Instalação $name" "$LOG_DIR/deb_install.log" \
+            env DEBIAN_FRONTEND=noninteractive "${SUDO[@]}" apt-get install -y "$MANUAL_FILE"; then
+            info "Arquivo baixado mantido em: $MANUAL_FILE"
+        fi
+    done
 }
 
 install_direct_debs() {
@@ -442,14 +618,20 @@ install_direct_debs() {
 
         real_url="$url"
         if [[ "$url" == gh:* ]]; then
-            real_url="$(github_latest_deb "${url#gh:}")"
+            local ghrepo="${url#gh:}"
+            local ghsuffix="amd64.deb"
+            if [[ "$ghrepo" == *:* ]]; then
+                ghsuffix="${ghrepo##*:}"
+                ghrepo="${ghrepo%%:*}"
+            fi
+            real_url="$(github_latest_deb "$ghrepo" "$ghsuffix")"
             if [ -z "$real_url" ]; then
                 record FAIL "$name (não foi possível resolver o release no GitHub)"; continue
             fi
         fi
 
         # Rebaixa se o arquivo local estiver vazio/corrompido.
-        if [ ! -s "$dest" ]; then
+        if [ -n "$real_url" ] && [ ! -s "$dest" ]; then
             if have curl; then
                 curl -fL --retry 3 -o "$dest" "$real_url" >>"$LOG_DIR/deb_download.log" 2>&1 \
                     || { record FAIL "Download $name (veja $LOG_DIR/deb_download.log)"; continue; }
@@ -496,6 +678,212 @@ flatpak_install() {
         run_cmd "Flatpak $app" "$LOG_DIR/flatpak_${app}.log" \
             flatpak install --noninteractive -y flathub "$app"
     done
+}
+
+# --- Extensões GNOME ------------------------------------------------------
+gnome_shell_major() {
+    gnome-shell --version 2>/dev/null | grep -oE '[0-9]+' | head -n1
+}
+
+install_gnome_extensions() {
+    title "Instalando extensões GNOME (${#GNOME_EXTENSIONS[@]})"
+    [ "${#GNOME_EXTENSIONS[@]}" -eq 0 ] && { record SKIP "Extensões GNOME (lista vazia)"; return; }
+    have curl || { record FAIL "curl ausente; não é possível baixar extensões"; return; }
+    have unzip || { record FAIL "unzip ausente; instale o pacote unzip"; return; }
+
+    local shell_ver; shell_ver="$(gnome_shell_major)"
+    [ -z "$shell_ver" ] && { record FAIL "Não foi possível detectar a versão do GNOME Shell"; return; }
+    info "GNOME Shell detectado: $shell_ver"
+
+    local uuid info_json dl dest
+    for uuid in "${GNOME_EXTENSIONS[@]}"; do
+        dest="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$uuid"
+
+        if [ -d "$dest" ]; then
+            record SKIP "Extensão $uuid (já instalada)"; continue
+        fi
+        if [ "$DRY_RUN" -eq 1 ]; then
+            record SKIP "Extensão $uuid (dry-run)"; continue
+        fi
+        confirm "Instalar extensão GNOME $uuid?" || { record SKIP "$uuid (recusada)"; continue; }
+
+        info_json="$(curl -fsSL "https://extensions.gnome.org/extension-info/?uuid=${uuid}&shell_version=${shell_ver}" 2>>"$LOG_DIR/extensions.log")"
+        dl="$(printf '%s' "$info_json" | grep -oE '"(/download-extension|https?://)[^"]*\.zip[^"]*"' | tr -d '"' | head -n1)"
+        if [ -z "$dl" ]; then
+            record FAIL "Extensão $uuid (sem versão para GNOME $shell_ver)"; continue
+        fi
+        case "$dl" in
+            /*) dl="https://extensions.gnome.org${dl}" ;;
+        esac
+
+        mkdir -p "$dest"
+        if curl -fsSL "$dl" -o "$dest/ext.zip" 2>>"$LOG_DIR/extensions.log" \
+            && unzip -q -o "$dest/ext.zip" -d "$dest" >>"$LOG_DIR/extensions.log" 2>&1; then
+            rm -f "$dest/ext.zip"
+            record OK "Extensão $uuid instalada"
+            # Tenta habilitar (pode exigir relogin para extensões de shell).
+            gnome-extensions enable "$uuid" >/dev/null 2>&1 || true
+        else
+            rm -rf "$dest"
+            record FAIL "Extensão $uuid (falha no download/extração; veja $LOG_DIR/extensions.log)"
+        fi
+    done
+    info "Algumas extensões só ficam ativas após sair e entrar novamente."
+}
+
+# --- Ferramentas de desenvolvimento --------------------------------------
+
+# Escreve as variáveis de ambiente em um único arquivo e garante que o
+# ~/.bashrc (e ~/.zshrc, se existir) o carregue.
+setup_shell_env() {
+    title "Configurando variáveis de ambiente do shell"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        record SKIP "Variáveis de shell em $ENV_FILE (dry-run)"; return
+    fi
+
+    mkdir -p "$(dirname "$ENV_FILE")"
+    cat > "$ENV_FILE" <<EOF
+# Variáveis de ambiente das ferramentas instaladas.
+# Gerado por instalar-ubuntu-26-04.sh — edite com cuidado.
+
+# Binários do usuário (inclui o comando dotnet-install)
+export PATH="\$HOME/.local/bin:\$PATH"
+
+# opencode
+export PATH="\$HOME/.opencode/bin:\$PATH"
+
+# nvm (Node Version Manager)
+export NVM_DIR="\$HOME/.nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && \\. "\$NVM_DIR/nvm.sh"
+[ -s "\$NVM_DIR/bash_completion" ] && \\. "\$NVM_DIR/bash_completion"
+
+# .NET SDK
+export DOTNET_ROOT="\$HOME/.dotnet"
+export DOTNET_INSTALL_DIR="\$HOME/.dotnet"
+export PATH="\$PATH:\$DOTNET_ROOT:\$DOTNET_ROOT/tools"
+EOF
+    record OK "Arquivo de ambiente criado: $ENV_FILE"
+
+    # Garante o carregamento em shells interativos e de login.
+    local marker="# --- instalar-ubuntu environment ---"
+    local load_line="[ -f \"$ENV_FILE\" ] && . \"$ENV_FILE\""
+    local rc
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+        [ -e "$rc" ] || continue
+        if ! grep -qF "$marker" "$rc"; then
+            {
+                printf '\n%s\n%s\n' "$marker" "$load_line"
+            } >> "$rc"
+            record OK "Carregamento adicionado em $rc"
+        else
+            record SKIP "Carregamento já presente em $rc"
+        fi
+    done
+    # ~/.profile cobre sessões de login que não leem .bashrc.
+    if [ -f "$HOME/.profile" ] && ! grep -qF "$ENV_FILE" "$HOME/.profile"; then
+        printf '\n# --- instalar-ubuntu environment ---\n[ -f "%s" ] && . "%s"\n' \
+            "$ENV_FILE" "$ENV_FILE" >> "$HOME/.profile"
+        record OK "Carregamento adicionado em $HOME/.profile"
+    fi
+
+    # Aplica já na sessão atual do script.
+    # shellcheck disable=SC1090
+    . "$ENV_FILE" 2>/dev/null || true
+}
+
+install_opencode() {
+    title "Instalando opencode"
+    if [ -x "$HOME/.opencode/bin/opencode" ]; then
+        record SKIP "opencode (já instalado)"
+        return
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+        record SKIP "opencode (dry-run)"; return
+    fi
+    confirm "Instalar o opencode?" || { record SKIP "opencode (recusado)"; return; }
+    # --no-modify-path: o PATH é gerenciado pelo nosso env.sh.
+    run_cmd "opencode" "$LOG_DIR/opencode.log" \
+        bash -c 'curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path'
+}
+
+install_nvm() {
+    title "Instalando nvm (Node Version Manager)"
+    if [ -s "$HOME/.nvm/nvm.sh" ]; then
+        record SKIP "nvm (já instalado)"
+    else
+        if [ "$DRY_RUN" -eq 1 ]; then
+            record SKIP "nvm (dry-run)"
+        else
+            confirm "Instalar o nvm?" || { record SKIP "nvm (recusado)"; }
+            run_cmd "nvm" "$LOG_DIR/nvm.log" bash -c \
+                "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | bash"
+        fi
+    fi
+
+    # Carrega o nvm para instalar o Node. Necessário também por causa do
+    # "set -u": o script do nvm referencia NVM_* e quebraria sem carregar.
+    export NVM_DIR="$HOME/.nvm"
+    if [ -s "$NVM_DIR/nvm.sh" ]; then
+        # shellcheck disable=SC1091
+        . "$NVM_DIR/nvm.sh" >/dev/null 2>&1 || true
+    fi
+
+    if [ -n "${NVM_NODE_VERSION:-}" ] && command -v nvm >/dev/null 2>&1; then
+        # Aceita "lts", "lts/*", "node" ou uma versão exata (ex.: 22).
+        local node_arg="$NVM_NODE_VERSION"
+        case "$node_arg" in
+            lts|lts/*|node) node_arg="--lts" ;;
+        esac
+        local node_label="${NVM_NODE_VERSION}"
+        if [ "$node_arg" = "--lts" ]; then
+            node_label="lts"
+        fi
+        if [ "$DRY_RUN" -eq 1 ]; then
+            record SKIP "Node ${node_label} via nvm (dry-run)"
+        elif nvm ls "$node_label" >/dev/null 2>&1 && [ "$node_arg" != "--lts" ]; then
+            record SKIP "Node ${node_label} (já instalado via nvm)"
+        else
+            run_cmd "Node ${node_label} (nvm install)" "$LOG_DIR/nvm_node.log" \
+                nvm install "$node_arg"
+        fi
+    fi
+}
+
+install_dotnet() {
+    title "Instalando .NET SDK (${DOTNET_CHANNELS[*]})"
+    [ "${#DOTNET_CHANNELS[@]}" -eq 0 ] && { record SKIP ".NET (lista vazia)"; return; }
+    if [ "$DRY_RUN" -eq 1 ]; then
+        record SKIP ".NET ${DOTNET_CHANNELS[*]} (dry-run)"; return
+    fi
+    have curl || { record FAIL ".NET (curl ausente)"; return; }
+
+    local installer="$CACHE_HOME/dotnet-install.sh"
+    if [ ! -s "$installer" ]; then
+        curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$installer" \
+            >>"$LOG_DIR/dotnet.log" 2>&1 \
+            || { record FAIL ".NET (falha ao baixar dotnet-install.sh)"; return; }
+        chmod +x "$installer"
+    fi
+    # Disponibiliza "dotnet-install" como comando no PATH do usuário.
+    if [ ! -x "$HOME/.local/bin/dotnet-install" ]; then
+        mkdir -p "$HOME/.local/bin"
+        install -m 0755 "$installer" "$HOME/.local/bin/dotnet-install"
+        record OK "Comando dotnet-install instalado em ~/.local/bin"
+    fi
+
+    local channel
+    for channel in "${DOTNET_CHANNELS[@]}"; do
+        if [ -x "$HOME/.dotnet/dotnet" ] && "$HOME/.dotnet/dotnet" --list-sdks 2>/dev/null | grep -q "^${channel}\."; then
+            record SKIP ".NET SDK ${channel} (já instalado)"
+            continue
+        fi
+        confirm "Instalar .NET SDK canal ${channel}?" || { record SKIP ".NET ${channel} (recusado)"; continue; }
+        run_cmd ".NET SDK ${channel}" "$LOG_DIR/dotnet_${channel}.log" \
+            "$installer" --channel "$channel" --install-dir "$HOME/.dotnet"
+    done
+    info "Para outras versões, use: dotnet-install --channel <versao>"
+    info "(instala sempre em \$DOTNET_INSTALL_DIR = ~/.dotnet; sem precisar de flags)"
+    info "Liste o instalado com: dotnet --list-sdks"
 }
 
 cleanup() {
@@ -568,20 +956,32 @@ main() {
     [ "$SELF_UPDATE" = "yes" ] && self_update
 
     case "$ONLY" in
-        apt)     apt_refresh; apt_upgrade; apt_install ;;
-        repos)   add_third_party_repos ;;
-        deb)     install_direct_debs ;;
-        flatpak) flatpak_setup; flatpak_install ;;
-        cleanup) cleanup ;;
+        apt)        apt_refresh; apt_upgrade; apt_install ;;
+        repos)      add_third_party_repos ;;
+        ppa)        add_ppas ;;
+        deb)        install_direct_debs ;;
+        flatpak)    flatpak_setup; flatpak_install ;;
+        extensions) install_gnome_extensions ;;
+        dev)        setup_shell_env; install_opencode; install_nvm; install_dotnet ;;
+        manual)     install_manual_downloads ;;
+        cleanup)    cleanup ;;
         "")
             apt_refresh
             apt_upgrade
             apt_install
             add_third_party_repos
+            add_ppas
             install_direct_debs
             flatpak_setup
             flatpak_install
+            install_gnome_extensions
+            setup_shell_env
+            install_opencode
+            install_nvm
+            install_dotnet
             cleanup
+            # Por último: depende de interação manual do usuário.
+            install_manual_downloads
             ;;
         *) err "Grupo inválido para --only: $ONLY"; exit 2 ;;
     esac
