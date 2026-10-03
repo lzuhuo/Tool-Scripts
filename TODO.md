@@ -18,8 +18,7 @@ A Microsoft **aposentou o Azure Data Studio em 28/02/2026**. O substituto é o
 - `programs.sh` — link de versão antiga (EOL).
 - `programs-arch-linux.sh` / `programs-crystal-linux.sh` — AUR
   `azuredatastudio-bin` **ainda existe** (1.52.0-3), mas instala software EOL.
-- `install_macos.sh` — cask `azure-data-studio` **ainda existe** (HTTP 200),
-  porém o app está descontinuado.
+- `instalar-macos.sh` — cask `azure-data-studio` **removido** (app descontinuado).
 
 > `instalar-fedora.sh` já foi ajustado (removeu o Azure DS e avisa o usuário).
 
@@ -30,8 +29,8 @@ fixas como `VNC-Viewer-7.15.1-Linux-x64.deb` retornam **404**.
 - `programs-arch-linux.sh` / `programs-crystal-linux.sh` — AUR
   `realvnc-vnc-viewer` **existe e está atualizado** (8.3.0-1), então funciona
   no Arch; só remover a **duplicata** e decidir se vale manter.
-- `install_macos.sh` — cask `vnc-viewer` **NÃO existe mais** (HTTP 404) →
-  o comando falha hoje.
+- `instalar-macos.sh` — cask `vnc-viewer` **removido** (HTTP 404);
+  substituído por `windows-app` (RDP) + `rustdesk`.
 
 > `instalar-ubuntu-26-04.sh` resolveu com **Remmina** (VNC/RDP/SSH) via apt.
 
@@ -45,7 +44,7 @@ O site redireciona para a versão antiga (Zoiper 3) e bloqueia automação.
 Abordagem recomendada: modal de navegador com detecção em `~/Downloads`
 (implementado no `instalar-ubuntu-26-04.sh`).
 - `programs.sh` (wget baixa HTML, não o `.deb`)
-- `install_macos.sh` (só nota)
+- `instalar-macos.sh` (modal de navegador, mesmo modelo do Ubuntu)
 - `instalar-fedora.sh` (só aviso)
 
 ---
@@ -111,16 +110,29 @@ Nomes verificados nos repositórios oficiais e no AUR:
 
 ---
 
-## `install_macos.sh` (macOS)
+## `instalar-macos.sh` (macOS) — ✅ revisado e reescrito (sem brew)
 
-Casks verificados no `formulae.brew.sh`:
+O antigo `install_macos.sh` foi substituído por `instalar-macos.sh`
+(arquitetura alinhada ao `instalar-ubuntu-26-04.sh`). Após a descoberta de
+que o Homebrew parou de suportar Intel (Tier 3, instalador recusa x86_64),
+o fluxo foi trocado para **download direto + MacPorts**.
 
-- [ ] cask `vnc-viewer` — **NÃO existe** (HTTP 404) → o comando falha hoje.
-      Remover ou trocar (o `remmina` **também não tem cask**, HTTP 404).
-- [ ] cask `azure-data-studio` — existe (HTTP 200), mas o app está **EOL**.
-      Remover e apontar para o VS Code.
-- [ ] Zoiper/WiFiman não têm fórmula oficial (já documentado no script).
-- [ ] Considerar `brew update`/`upgrade` opcionais (podem demorar muito).
+- [x] brew/cask/mas — removidos como dependência: Homebrew não suporta mais
+      Intel (Tier 3; instalador oficial recusa). Grupo agora é
+      `direct` (downloads) + `macports` (CLI).
+- [x] cask `vnc-viewer` / `azure-data-studio` / `flameshot` — removidos
+      (HTTP 404 / app EOL / só Linux). VNC nativo = Screen Sharing; wrapper
+      `screenshot` em `~/.local/bin`.
+- [x] Zoiper/GnuPG/Chrome/AnyDesk/KeePassXC/WiFiman/WinBox — apenas via
+      modal de download manual (`--only manual`).
+- [x] CLI que eram via brew (`git`, `wget`, `gh`, `git-lfs`, `openvpn`)
+      agora via **MacPorts** (`--only macports`), que tem suporte ao Intel.
+- [x] Dev tooling mantido: `opencode`, `nvm` + Node LTS, `.NET SDK` (10/8).
+- [x] Logs em `~/.local/share/instalar-macos/logs/`; contadores OK/SKIP/FALHA.
+- [ ] Confirmar nomes de port do MacPorts (`git`, `wget`, `gh`, `git-lfs`,
+      `openvpn`) com `port search` na máquina-alvo antes de confiar no grupo.
+- [ ] Confirmar URLs diretas (Edge/Zoom/Postman/VS Code) na máquina-alvo —
+      o script registra FALHA por app sem abortar o restante.
 
 ---
 

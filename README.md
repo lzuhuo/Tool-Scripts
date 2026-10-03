@@ -38,7 +38,7 @@ This repository contains a variety of scripts, each tailored for a specific oper
 ---
 
 ### 🍎 macOS
-*   `install_macos.sh`: Sets up a macOS environment by first installing Homebrew (if not present) and then using it to install a suite of popular command-line tools and GUI applications.
+*   `instalar-macos.sh`: Provisiona macOS (incluindo Intel x86_64, sem depender do Homebrew). Estratégia: download direto de `.dmg`/`.pkg`/`.zip` para apps com URL estável → MacPorts para ferramentas de linha de comando → dev (opencode, nvm+Node LTS, .NET SDK) → downloads manuais via modal. CLI completo: `-y`, `-n/--dry-run`, `--no-self-update`, `--only <grupo>` (`direct|macports|dev|config|manual|cleanup`) e `--help`. Idempotente, com erro real, resumo OK/SKIP/FALHA e logs em `~/.local` (fora do repo). Guia: [docs/macos.md](docs/macos.md).
 
 ---
 
