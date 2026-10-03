@@ -12,16 +12,24 @@ This repository contains a variety of scripts, each tailored for a specific oper
 ### 🐧 Linux
 
 #### **Debian / Ubuntu**
-*   `instalar-ubuntu-26-04.sh`: A comprehensive setup script for Ubuntu 20.04+ environments. It automates the installation of essential applications, development tools, and utilities using `apt` and `flatpak`. Includes detailed logging for each step.
-*   `programs.sh`: A general-purpose script for Debian-based systems to install common applications via `apt` and `flatpak`.
+*   `instalar-ubuntu-26-04.sh`: A comprehensive setup script for **Ubuntu 26.04 LTS ("resolute")**. It provisions applications, development tools and utilities following a clear preference order: **official Ubuntu repos → PPAs / third-party APT repos → direct `.deb` → Flatpak (only when nothing else fits)**. Highlights:
+    *   Idempotent and safe to re-run; real error handling with a final OK/SKIP/FAIL summary.
+    *   Logs and `.deb` cache kept in `~/.local` (outside the repo).
+    *   **Graphical sudo prompt** (zenity) installed persistently, with a 60-minute credential cache — works even without a terminal (e.g. double-click).
+    *   Dev tooling: **opencode**, **nvm** (+ Node LTS) and **.NET SDK** (side-by-side channels) with shell env persisted in `~/.config/instalar-ubuntu/env.sh`; the `dotnet-install` helper is exposed as a command.
+    *   GNOME extensions installed from `extensions.gnome.org`.
+    *   A **manual browser modal** for vendors that block automated downloads (e.g. Zoiper): opens the page, waits for the file in `~/Downloads`, closes the window and installs.
+    *   Optional **self-update** from a Git raw URL (set `REPO_RAW_URL`).
+    *   Run `./instalar-ubuntu-26-04.sh --help` for the full option/groups list.
+*   `programs.sh`: A general-purpose script for Debian-based systems to install common applications via `apt` and `flatpak`. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 *   `lvm-free-ubuntu-server.sh`: A utility for Ubuntu Server administrators to resize an LVM partition, extending it to use all available free space in the volume group. **Warning:** Run with caution and ensure you have backups.
 
 #### **Fedora**
-*   `instalar-fedora.sh`: Sets up a Fedora workstation by installing common software packages using the `dnf` package manager and `flatpak`.
+*   `instalar-fedora.sh`: Sets up a Fedora workstation by installing common software packages using the `dnf` package manager and `flatpak`. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 
 #### **Arch Linux & Derivatives**
-*   `programs-arch-linux.sh`: An extensive setup script for Arch Linux. It installs the `yay` AUR helper, PipeWire audio, development tools, a set of useful GNOME extensions, and other common applications from both official repositories and the AUR.
-*   `programs-crystal-linux.sh`: A setup script specifically for Crystal Linux (an Arch derivative). It uses `pacman` and Crystal's `ame` helper. **Note:** Requires manual editing of `/etc/pacman.conf` before execution.
+*   `programs-arch-linux.sh`: An extensive setup script for Arch Linux. It installs the `yay` AUR helper, PipeWire audio, development tools, a set of useful GNOME extensions, and other common applications from both official repositories and the AUR. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
+*   `programs-crystal-linux.sh`: A setup script specifically for Crystal Linux (an Arch derivative). It uses `pacman` and Crystal's `ame` helper. **Note:** Requires manual editing of `/etc/pacman.conf` before execution. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 
 #### **Special Purpose / Compatibility**
 *   `instalar_simplay.sh`: A graphical (Zenity-based) installer that sets up the Windows application 'SimPlay' on Linux using Wine. It handles dependency installation (Wine, Winetricks), creates a dedicated Wine prefix, and adds a desktop shortcut.
