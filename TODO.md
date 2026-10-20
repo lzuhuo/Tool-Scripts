@@ -158,25 +158,311 @@ Script alinhado à arquitetura de referência (`instalar-ubuntu-26-04.sh`) com m
 
 ## `install_omarchy.sh` (Arch/Omarchy)
 
-- [ ] `microsip` — wrapper Wine (só Windows); avaliar remoção.
-- [ ] `gtkglext` — conferir se ainda existe no AUR (no Arch não é oficial).
-- [ ] Sem tratamento de erro nem resumo final.
+Script mínimo para Omarchy (Arch-based). Estrutura simples mas funcional.
+
+### ✅ Pacotes oficiais
+- `git`, `curl`, `wget`, `flameshot`, `inetutils` — ✅ todos no core/extra
+
+### ✅ AUR packages (verificados)
+| Pacote | Versão | Status |
+|--------|--------|--------|
+| `microsoft-edge-stable-bin` | 155.0.4283.62-1 | ✅ |
+| `dbeaver-ce-bin` | 26.2.2-1 | ✅ |
+| `postman-bin` | 12.32.4-1 | ✅ |
+| `ferdium-bin` | 7.2.3-1 | ✅ |
+| `keepassxc` | Existe no AUR e oficial | ✅ |
+| `wine-mono` | ⚠️ Legado | Revisar |
+| `microsip` | 3.22.18-1 (Wine wrapper) | Avaliar remoção |
+| `gtkglext` | 1.2.0-20 (GTK2 legado) | Revisar |
+| `anydesk-bin` | 8.1.0-1 | ✅ |
+| `freedownloadmanager-bin` | 6.33.1.6648-1 | ✅ (FDM tem Flatpak oficial) |
+
+### ⚠️ Problemas
+- [ ] `microsip` — Wine wrapper só Windows; avaliar remoção
+- [ ] `gtkglext` — GTK2/OpenGL legado; avaliar remoção
+- [ ] `wine-mono` — dependência legada; revisar necessidade
+- [ ] `freedownloadmanager-bin` — tem Flatpak oficial, preferir Flatpak
+- [ ] `ferdium-bin` — tem Flatpak oficial, preferir Flatpak
+- [ ] `anydesk-bin` — tem Flatpak oficial, preferir Flatpak
+- [ ] `omarchy plugin add` — comando específico do Omarchy; verificar se ainda válido
+- [ ] Sem `set -euo pipefail`, sem tratamento de erro, sem resumo
+- [ ] Sem idempotência, sem logs, sem `--dry-run`, sem `--only`
+- [ ] Autorização gráfica para sudo sem TTY
+- [ ] `omarchy` command pode não existir em Arch puro
 
 ---
+
+## `instalar_simplay.sh` (Ubuntu + Wine)
+
+Instalador gráfico (Zenity) para app Windows 'SimPlay' via Wine.
+
+### Problemas identificados
+- [ ] **Versão hardcoded**: ZIP URL fixa na 1.3.6 — verificar se continua atual
+- [ ] `curl -L` sem `--fail`/`--retry`; sem validação do ZIP (checksum/tamanho)
+- [ ] `winetricks -q dotnet48 vcrun2015 directx9 directplay dxvk` — baixa muito, pode falhar; sem checagem de sucesso
+- [ ] `eval "$INSTALAR ..."` com string de comando — frágil (injeção, expansão)
+- [ ] `detectar_gerenciador` define `INSTALAR` como string com `&&` — `eval` problemático
+- [ ] Sem shebang robusto / `set -euo pipefail`
+- [ ] Sem `--dry-run`, sem logs estruturados, sem resumo OK/SKIP/FAIL
+- [ ] `zenity` usado antes de instalar dependências (linha 121 chama `instalar_dependencias` mas linha 52 já usa zenity em `escolher_resolucao`)
+- [ ] `RESOLUCAO` definida duas vezes (linha 52 e 83) — lógica confusa
+- [ ] Bom candidato a padronizar com arquitetura de referência
+- [ ] URL do ZIP em `pub-624c1898dc4040e2aa0cae1c31bfab7e.r2.dev` — endpoint R2 (Cloudflare), verificar longevidade
+
+---
+
+## `sql-2008.sh` (compatibilidade SQL Server 2008) — ⚠️ **PERIGOSO**
+
+Script solto, sem shebang, sem tratamento de erro e **quebra o sistema**.
+
+### Problemas críticos
+- [ ] Sem `#!/bin/bash` e sem `set -e`
+- [ ] `sed -i` em `/etc/ssl/openssl.cnf` sem backup e sem `sudo` explícito
+- [ ] Compila OpenSSL **1.1.1h** (2019, **sem patches de segurança**) e sobrescreve `/usr/bin/openssl` com symlink → **pode quebrar crypto do sistema todo**
+- [ ] `sudo ln -s ... /usr/bin/openssl` falha se já existir (sem `-f`)
+- [ ] `./config` com `sudo make install` fora do diretório (falta `cd`)
+- [ ] Não instala deps antes do `./config` (make/gcc vêm depois na linha 11)
+- [ ] **Recomendado**: checar se o sistema atual aceita `seclevel=1` no `/etc/ssl/openssl.cnf` **sem** compilar OpenSSL, que quase sempre basta
+- [ ] OpenSSL 1.1.1 EOL desde 2023-09-11 — não deve ser instalado
+
+### Ação recomendada
+- [ ] **NÃO MIGRAR** para arquitetura de referência como instalador
+- [ ] Reescrever como **script de verificação apenas**: testa se `openssl.cnf` com `SECLEVEL=1` funciona
+- [ ] Documentar alternativa segura (configuração openssl.cnf sem compilar)
+- [ ] Marcar como **DEPRECADO/PERIGOSO** no README
+
+---
+
+## `lvm-free-ubuntu-server.sh` (⚠️ **DESTRUTIVO**)
+
+Redimensiona LVM para usar espaço livre. **Pode destruir dados**.
+
+### Problemas críticos
+- [ ] Sem shebang e sem `set -e`
+- [ ] `pvresize /dev/sda3` e LVM device **hardcoded** — pode destruir dados em outra máquina
+- [ ] `sudo su` no topo (interativo) quebra execução não interativa
+- [ ] Faltam confirmações e checagens (`vgs`, `lvs`, `df -h` antes/depois)
+- [ ] Deveria exigir confirmação explícita e avisar sobre backup
+- [ ] Detectar devices dinamicamente (`lsblk`, `findmnt`, `pvs`)
+
+### Ação recomendada
+- [ ] **NÃO MIGRAR** como instalador genérico
+- [ ] Reescrever como **ferramenta interativa segura**: detecta VG/LV, mostra preview, exige confirmação, faz backup
+- [ ] Ou mover para `docs/` como exemplo educacional com avisos
+
+---
+
+## `programs.sh` (Debian/Ubuntu — Legacy)
+
+Script antigo, sem tratamento de erro, sem `set -euo pipefail`. Pendências específicas:
+
+### ❌ Pacotes apt com problemas
+- [ ] `chrome-gnome-shell` → **renomeado** para `gnome-browser-connector`
+- [ ] `inetutils-*` glob frágil → listar explicitamente (`inetutils-telnet`, `inetutils-traceroute`)
+- [ ] `tilix`, `flameshot`, `git`, `curl`, `gnome-tweaks` — verificar se existem no Ubuntu 24.04+
+
+### ❌ Downloads diretos (URLs mortas/erradas)
+| URL | Problema | Correção |
+|-----|----------|----------|
+| `zoiper.com/.../linux-deb` | wget baixa HTML, não .deb (anti-bot) | Modal navegador (como Ubuntu/Zorin) |
+| `realvnc.com/.../VNC-Viewer-7.15.1-Linux-x64.deb` | **404** (links diretos extintos) | Remmina via apt |
+| `microsoft.com/.../azuredatastudio-linux-1.52.0.deb` | **EOL** (Azure Data Studio descontinuado 2026-02-28) | VS Code + extensões |
+| `desktop.wifiman.com/wifiman-desktop-1.2.8-amd64.deb` | Versão fixa 1.2.8 (atual 1.3.0) | URL genérica ou Flatpak |
+
+### ⚠️ Flatpaks — verificar IDs
+| App | ID usado | ID correto Flathub | Status |
+|-----|----------|-------------------|--------|
+| Extension Manager | `com.mattjakeman.ExtensionManager` | ✅ | OK |
+| Postman | `com.getpostman.Postman` | ✅ | OK |
+| WinBox | `com.mikrotik.WinBox` | ✅ | OK |
+| KeePassXC | `org.keepassxc.KeePassXC` | ❌ **ID errado** | `org.keepassxc.KeePassXC` não existe; usar `org.keepassxc.KeePassXC` ou apt `keepassxc` |
+| Zoom | `us.zoom.Zoom` | ❌ **ID errado** | Flathub não tem Zoom oficial; usar `.deb` direto |
+| Chrome | `com.google.Chrome` | ❌ **ID errado** | Flathub não tem Chrome oficial; usar repo Google |
+| Edge | `com.microsoft.Edge` | ❌ **ID errado** | Flathub não tem Edge oficial; usar repo Microsoft |
+| DBeaver | `io.dbeaver.DBeaverCommunity` | ✅ | OK |
+| AnyDesk | `com.anydesk.Anydesk` | ⚠️ Case | Verificar `com.anydesk.AnyDesk` |
+| Ferdium | `org.ferdium.Ferdium` | ✅ | OK |
+| FDM | `org.freedownloadmanager.Manager` | ✅ | OK |
+| VS Code | `com.visualstudio.code` | ✅ | Existe (mas repo Microsoft é melhor) |
+
+### Problemas de estrutura
+- [ ] `sudo rm -r programas` sem confirmação e com `sudo` desnecessário
+- [ ] Sem `set -euo pipefail`, sem error handling
+- [ ] Sem resumo/contagem de falhas
+- [ ] Poderia seguir mesma arquitetura do `instalar-ubuntu-26-04.sh`
+- [ ] `cd programas` sem `|| exit` — se falhar, instala no diretório errado
+
+---
+
+## Priorização sugerida para migração
+
+### 🔥 **Alta prioridade** (scripts funcionais mas com bugs conhecidos)
+1. `instalar-fedora.sh` — bem estruturado, só correções de pacotes
+2. `programs-arch-linux.sh` — muito usado, muitos bugs AUR
+3. `programs-crystal-linux.sh` — bugs críticos (tilix, keepass, extension-manager)
+
+### 🟡 **Média prioridade** (precisam reescrita completa)
+4. `install_omarchy.sh` — simples mas incompleto
+5. `programs.sh` — legado total, reescrever do zero
+
+### 🟢 **Baixa prioridade / Não migrar como instaladores**
+6. `instalar_simplay.sh` — caso específico Wine, padronizar
+7. `sql-2008.sh` — **PERIGOSO**, reescrever como verificação apenas
+8. `lvm-free-ubuntu-server.sh` — **DESTRUTIVO**, reescrever como ferramenta segura
+
+---
+
+## `programs-arch-linux.sh` (Arch Linux)
+
+Script antigo, sem `set -euo pipefail`, sem tratamento de erro, sem resumo. Estrutura flat (tudo no main).
+
+### ✅ Pacotes oficiais verificados (existem no repositório `extra`/`core`)
+- `git`, `curl`, `wget`, `flameshot`, `gnome-tweaks`, `gnome-browser-connector`, `firefox`
+- `pipewire`, `pipewire-pulse`, `pipewire-alsa`, `pipewire-jack`, `wireplumber`
+- `openvpn`, `networkmanager-openvpn` (verificar `network-manager-applet` vs `nm-applet`)
+- `ttf-liberation`, `xcb-util-cursor`
+
+### ❌ Pacotes oficiais com problemas
+- [ ] `inetutils` → **não existe** como pacote único no Arch; usar `inetutils` (core, provê telnet/traceroute/ping etc.) — o script usa `inetutils` na linha 7, que **existe** no core
+- [ ] `qt5-remoteobjects` + `qt5-webengine` → **REMOVIDOS** do Arch oficial (Qt5 EOL); migrar para Qt6 ou remover
+
+### ❌ AUR packages com nomes incorretos / inexistentes
+| Usado no script | Status AUR | Correção |
+|-----------------|------------|----------|
+| `gnome-shell-extension-all-windows-srwp` | **NÃO EXISTE** | Remover ou achar alternativa |
+| `gnome-shell-extension-magic-lamp` | **NÃO EXISTE** | `gnome-shell-extension-compiz-alike-magic-lamp-effect-git` |
+| `gnome-shell-extension-compiz-windows-effect` | **NÃO EXISTE** | `gnome-shell-extension-compiz-windows-effect-git` |
+| `gnome-shell-extension-show-desktop-button` | **NÃO EXISTE** | Remover ou achar alternativa |
+| `gnome-shell-extension-vitals` | Nome errado | `gnome-shell-extension-vitals-git` |
+| `gnome-shell-extension-blur-my-shell` | ✅ Existe | OK |
+| `gnome-shell-extension-dash-to-dock` | ✅ Existe | OK |
+
+### ❌ AUR packages duplicados
+- `realvnc-vnc-viewer` aparece **duas vezes** (linha 47 e 62)
+
+### ⚠️ AUR packages legados/questionáveis
+- `azuredatastudio-bin` 1.52.0-3 — **EOL** (Azure Data Studio descontinuado 2026-02-28), remover
+- `wine-mono` — dependência legada; revisar necessidade
+- `microsip` — Wine wrapper (só Windows); avaliar remoção
+- `gtkglext` — GTK2/OpenGL legado; avaliar remoção
+- `gtkd` — D bindings para GTK+; confirmar necessidade
+- `freedownloadmanager-bin` — existe, mas FDM tem Flatpak oficial
+- `ferdium-bin` — existe, mas Ferdium tem Flatpak oficial
+- `anydesk-bin` — existe, mas AnyDesk tem Flatpak oficial
+
+### ✅ AUR packages OK
+- `google-chrome`, `microsoft-edge-stable-bin`, `zoom`
+- `visual-studio-code-bin`, `dbeaver-ce-bin`, `postman-bin`
+- `realvnc-vnc-viewer` 8.3.0-1 (existe e atualizado)
+- `winbox` 4.4-1 (corrigido: era `winbox3` no crystal)
+- `ulauncher` 5.16.2-1
+- `extension-manager` (existe no AUR)
+- `keepassxc` (existe no AUR e oficial)
+- `tilix` 1.9.6-10 — **NOTA: `tilix` está no AUR, NÃO no oficial**; script usa `pacman -S` na linha 65 → vai falhar; deve usar `yay -S`
+
+### Itens pendentes de arquitetura
+- [ ] Adicionar `set -Eeuo pipefail`
+- [ ] Adicionar funções de log, contadores OK/SKIP/FAIL, resumo final
+- [ ] Adicionar `--dry-run`, `--only`, `-y`, `--no-self-update`
+- [ ] Separar pacotes oficiais (`pacman`) vs AUR (`yay`)
+- [ ] Corrigir `tilix` → `yay -S tilix`
+- [ ] Corrigir nomes de extensões GNOME (ver tabela acima)
+- [ ] Remover `azuredatastudio-bin` (EOL)
+- [ ] Remover duplicata `realvnc-vnc-viewer`
+- [ ] Revisar `wine-mono`, `microsip`, `gtkglext`, `gtkd`
+- [ ] Migrar Qt5 → Qt6 ou remover `qt5-remoteobjects`/`qt5-webengine`
+- [ ] Idempotência (verificar antes de instalar)
+- [ ] Logs em `~/.local/share/programs-arch-linux/logs/`
+- [ ] Autorização gráfica (zenity) para sudo sem TTY
+
+---
+
+## `programs-crystal-linux.sh` (Crystal Linux — derivada do Arch)
+
+Script mínimo, usa `ame` (helper do Crystal) em vez de `yay`. Requer edição manual de `/etc/pacman.conf` antes de rodar.
+
+### ✅ Pacotes oficiais (verificar se existem no Arch base)
+- `tilix` — **AUR only** (não oficial), script usa `pacman -S` → vai falhar
+- `flameshot`, `gnome-tweaks`, `gnome-browser-connector`, `firefox` — ✅
+- `inetutils` — ✅ (core)
+- `openvpn`, `networkmanager-openvpn` — ✅
+- `network-manager-applet` → verificar se é `nm-applet` ou `network-manager-applet`
+
+### ❌ AUR packages via `ame` (verificados)
+| Usado no script | Status AUR | Correção |
+|-----------------|------------|----------|
+| `google-chrome` | ✅ 156.0.8078.47-1 | OK |
+| `microsoft-edge-stable-bin` | ✅ 155.0.4283.62-1 | OK |
+| `zoom` | ✅ 7.2.1-1 | OK |
+| `visual-studio-code-bin` | ✅ 1.142.0-1 | OK |
+| `azuredatastudio-bin` | ⚠️ 1.52.0-3 **EOL** | Remover |
+| `dbeaver-ce-bin` | ✅ 26.2.2-1 | OK |
+| `postman-bin` | ✅ 12.32.4-1 | OK |
+| `freedownloadmanager` | ✅ 6.35.1.7021-1 | OK |
+| `realvnc-vnc-viewer` | ✅ 8.3.0-1 | OK (duplicado na linha 31) |
+| `ferdium-bin` | ✅ 7.2.3-1 | OK |
+| `winbox3` | ⚠️ 3.43-1 (Winbox 3.x c/ Wine) | Atual é `winbox` 4.4-1 |
+| `inetutils` | ⚠️ **Duplicado** (já instalado via `pacman` linha 16) | Remover da linha 28 |
+| `extension-manager` | ❌ **NÃO EXISTE** como `extension-manager` | `extension-manager-git` 0.6.5.r280... |
+| `keepass` | ❌ **NÃO EXISTE** como `keepass` | Provável typo → `keepassxc` |
+| `wine-mono` | ⚠️ Legado | Revisar |
+| `microsip` | ✅ 3.22.18-1 (Wine wrapper) | Avaliar remoção |
+| `gtkglext` | ✅ 1.2.0-20 (GTK2 legado) | Revisar |
+| `anydesk-bin` | ✅ 8.1.0-1 | OK |
+
+### Problemas críticos
+- [ ] `tilix` instalado via `pacman -S` → **vai falhar** (está no AUR, não oficial)
+- [ ] `keepass` → typo, deveria ser `keepassxc`
+- [ ] `extension-manager` → não existe, usar `extension-manager-git`
+- [ ] `winbox3` → versão antiga (3.x com Wine), atual é `winbox` 4.4-1
+- [ ] `realvnc-vnc-viewer` duplicado (linhas 28 e 31)
+- [ ] `azuredatastudio-bin` → EOL, remover
+- [ ] `inetutils` duplicado (linha 16 via pacman, linha 28 via ame)
+- [ ] `network-manager-applet` → verificar nome correto no Arch (`nm-applet`?)
+- [ ] Script usa `ame` — confirmar se ainda é o helper padrão do Crystal Linux
+- [ ] Sem `set -e`, sem tratamento de erro, sem resumo, sem idempotência
+- [ ] Requer edição manual de `/etc/pacman.conf` (multilib) antes de rodar
+
+---
+
+## `install_omarchy.sh` (Arch/Omarchy)
 
 ## `instalar-fedora.sh` (Fedora)
 
 Já está bem estruturado (`set -Eeuo pipefail`, validações, avisos).
-Nomes verificados no `packages.fedoraproject.org`:
-- `remmina`, `ulauncher`, `wmctrl`, `wine`, `winetricks`, `zenity`,
-  `NetworkManager-openvpn`, `network-manager-applet` → existem.
-- Pacotes usados pelo script que **não** existem com esse nome:
-  - [ ] `inetutils` → **404**; usar `telnet` e `traceroute` (ambos existem).
-  (Obs.: o script atual não usa `inetutils`, só registrar a referência.)
-- [ ] `remmina-plugins-vnc` / `remmina-plugins-rdp` — existem por busca, mas a
-      página direta dá 404; confirmar no `dnf search remmina`.
-- [ ] Avaliar trocar o Flatpak `org.freedownloadmanager.Manager` por RPM, se
-      houver.
+Nomes verificados no `packages.fedoraproject.org` + Flatpak (Flathub):
+
+### ✅ Pacotes oficiais (existem)
+- `tilix`, `flameshot`, `git`, `curl`, `wget`, `gnome-tweaks`, `gnome-browser-connector`, `flatpak`, `keepassxc`, `remmina`
+
+### ❌ Pacotes com problemas
+- [ ] `remmina-plugins-vnc` → **não existe**; plugins disponíveis: `remmina-plugins-exec`, `remmina-plugins-kwallet`, `remmina-plugins-python`. RDP/VNC/SSH são built-in no Remmina moderno.
+- [ ] `ulauncher` → verificar se existe no Fedora (não está na lista verificada do TODO original)
+- [ ] `wmctrl`, `wine`, `winetricks`, `zenity`, `NetworkManager-openvpn`, `network-manager-applet` → confirmar no `dnf search`
+
+### RPMs diretos (repositórios terceiros) — verificar URLs
+- [ ] VS Code (`code`), Google Chrome (`google-chrome-stable`), Microsoft Edge (`microsoft-edge-stable`) — repos oficiais Microsoft/Google
+- [ ] Zoom (`zoom_x86_64.rpm`) — URL `zoom.us/client/latest/zoom_x86_64.rpm`
+
+### Flatpaks (Flathub) — ✅ todos existem
+| App | ID Flatpak | Versão (2026-10-20) | Status |
+|-----|------------|---------------------|--------|
+| Extension Manager | `com.mattjakeman.ExtensionManager` | 0.6.5 | ✅ |
+| Postman | `com.getpostman.Postman` | 12.33.1 | ✅ |
+| WinBox | `com.mikrotik.WinBox` | 4.4 | ✅ |
+| Free Download Manager | `org.freedownloadmanager.Manager` | 6.34.2.6926 | ✅ |
+| DBeaver Community | `io.dbeaver.DBeaverCommunity` | 26.2.2 | ✅ |
+| AnyDesk | `com.anydesk.Anydesk` | 8.0.4 | ⚠️ ID tem typo: `Anydesk` vs `AnyDesk` |
+| Ferdium | `org.ferdium.Ferdium` | 7.2.3 | ✅ |
+
+### Itens pendentes
+- [ ] Corrigir `remmina-plugins-vnc` → remover (VNC built-in) ou usar plugins corretos
+- [ ] Corrigir typo `com.anydesk.Anydesk` → `com.anydesk.AnyDesk` (verificar case-sensitivity no Flatpak)
+- [ ] Verificar se `ulauncher` existe no Fedora (ou usar COPR/Flatpak)
+- [ ] Verificar `wmctrl`, `wine`, `winetricks`, `zenity`, `NetworkManager-openvpn`, `network-manager-applet`
+- [ ] `inetutils` não existe → usar `telnet` + `traceroute` se necessário
+- [ ] Avaliar se vale manter RPMs diretos vs Flatpaks para apps que têm ambos
+- [ ] Zoiper: sem RPM automatizável (manter aviso atual)
 
 ---
 
