@@ -30,7 +30,7 @@ This repository contains a variety of scripts, each tailored for a specific oper
 *   `lvm-free-ubuntu-server.sh`: A utility for Ubuntu Server administrators to resize an LVM partition, extending it to use all available free space in the volume group. **Warning:** Run with caution and ensure you have backups.
 
 #### **Fedora**
-*   `instalar-fedora.sh`: Sets up a Fedora workstation by installing common software packages using the `dnf` package manager and `flatpak`. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
+*   `instalar-fedora.sh`: Provisiona Fedora Workstation (x86_64). Estratégia: repos oficiais → repos terceiros (VS Code, Chrome, Edge) → RPMs avulsos (Zoom) → Flatpak (Postman, WinBox, FDM, DBeaver, AnyDesk, Ferdium, Extension Manager). Arquitetura de referência: idempotente, error handling, logs em `~/.local`, sudo gráfico, auto-update, resumo OK/SKIP/FALHA. CLI: `-y`, `-n/--dry-run`, `--no-upgrade`, `--no-self-update`, `--only <grupo>` (`dnf|repos|rpm|flatpak|dev|cleanup`), `--help`. Guia: [docs/fedora.md](docs/fedora.md).
 
 #### **Arch Linux & Derivatives**
 *   `programs-arch-linux.sh`: An extensive setup script for Arch Linux. It installs the `yay` AUR helper, PipeWire audio, development tools, a set of useful GNOME extensions, and other common applications from both official repositories and the AUR. ⚠️ Contains outdated items — see [TODO.md](TODO.md).

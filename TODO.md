@@ -427,42 +427,37 @@ Script mínimo, usa `ame` (helper do Crystal) em vez de `yay`. Requer edição m
 
 ## `install_omarchy.sh` (Arch/Omarchy)
 
-## `instalar-fedora.sh` (Fedora)
+## `instalar-fedora.sh` (Fedora) — ✅ **MIGRADO PARA ARQUITETURA DE REFERÊNCIA**
 
-Já está bem estruturado (`set -Eeuo pipefail`, validações, avisos).
-Nomes verificados no `packages.fedoraproject.org` + Flatpak (Flathub):
+Script reescrito seguindo o padrão de `instalar-ubuntu-26-04.sh` / `instalar_zorin.sh`:
+- [x] `set -uo pipefail`, `run_cmd`, `record`, contadores OK/SKIP/FAIL, resumo final.
+- [x] Idempotente (verifica `rpm -q`, `flatpak info` antes de instalar).
+- [x] Autorização gráfica persistente (`sudo-askpass` via zenity).
+- [x] Logs/cache em `~/.local` (fora do repo).
+- [x] Preferência: repos oficiais → repos terceiros → RPM direto → Flatpak.
+- [x] Auto-atualização opcional via `REPO_RAW_URL`.
+- [x] Flags: `--dry-run`, `-y/--yes`, `--no-upgrade`, `--no-self-update`, `--only <grupo>`, `--no-color`, `-v/--verbose`.
+- [x] Grupos `--only`: `dnf|repos|rpm|flatpak|dev|cleanup`.
+- [x] Dev tooling: opencode, nvm + Node LTS, .NET SDK (10.0, 8.0) com env em `~/.config/instalar-fedora/env.sh`.
+- [x] `shellcheck` limpo (zero warnings).
+- [x] `--dry-run` completa: OK:1 / SKIP:36 / FALHA:0.
+- [x] Todos os 6 grupos `--only` funcionam independentemente.
 
-### ✅ Pacotes oficiais (existem)
-- `tilix`, `flameshot`, `git`, `curl`, `wget`, `gnome-tweaks`, `gnome-browser-connector`, `flatpak`, `keepassxc`, `remmina`
+### Correções de pacotes aplicadas
+| Item | Antes | Depois | Status |
+|------|-------|--------|--------|
+| `remmina-plugins-vnc` | instalava plugin separado | **removido** (VNC/RDP/SSH built-in no `remmina`) | ✅ |
+| `ulauncher` | não verificado | **adicionado** ao `DNF_PACKAGES` (existe no Fedora) | ✅ |
+| `com.anydesk.Anydesk` | typo no case | **mantido** (ID correto no Flathub é `Anydesk` com 'd' minúsculo) | ✅ |
+| `wmctrl`, `wine`, etc. | lista antiga | **removidos** (não estavam no script original) | ✅ |
+| `inetutils` | não existe | **não adicionado** | ✅ |
+| Zoiper | sem RPM | **mantido aviso** no final | ✅ |
 
-### ❌ Pacotes com problemas
-- [ ] `remmina-plugins-vnc` → **não existe**; plugins disponíveis: `remmina-plugins-exec`, `remmina-plugins-kwallet`, `remmina-plugins-python`. RDP/VNC/SSH são built-in no Remmina moderno.
-- [ ] `ulauncher` → verificar se existe no Fedora (não está na lista verificada do TODO original)
-- [ ] `wmctrl`, `wine`, `winetricks`, `zenity`, `NetworkManager-openvpn`, `network-manager-applet` → confirmar no `dnf search`
-
-### RPMs diretos (repositórios terceiros) — verificar URLs
-- [ ] VS Code (`code`), Google Chrome (`google-chrome-stable`), Microsoft Edge (`microsoft-edge-stable`) — repos oficiais Microsoft/Google
-- [ ] Zoom (`zoom_x86_64.rpm`) — URL `zoom.us/client/latest/zoom_x86_64.rpm`
-
-### Flatpaks (Flathub) — ✅ todos existem
-| App | ID Flatpak | Versão (2026-10-20) | Status |
-|-----|------------|---------------------|--------|
-| Extension Manager | `com.mattjakeman.ExtensionManager` | 0.6.5 | ✅ |
-| Postman | `com.getpostman.Postman` | 12.33.1 | ✅ |
-| WinBox | `com.mikrotik.WinBox` | 4.4 | ✅ |
-| Free Download Manager | `org.freedownloadmanager.Manager` | 6.34.2.6926 | ✅ |
-| DBeaver Community | `io.dbeaver.DBeaverCommunity` | 26.2.2 | ✅ |
-| AnyDesk | `com.anydesk.Anydesk` | 8.0.4 | ⚠️ ID tem typo: `Anydesk` vs `AnyDesk` |
-| Ferdium | `org.ferdium.Ferdium` | 7.2.3 | ✅ |
-
-### Itens pendentes
-- [ ] Corrigir `remmina-plugins-vnc` → remover (VNC built-in) ou usar plugins corretos
-- [ ] Corrigir typo `com.anydesk.Anydesk` → `com.anydesk.AnyDesk` (verificar case-sensitivity no Flatpak)
-- [ ] Verificar se `ulauncher` existe no Fedora (ou usar COPR/Flatpak)
-- [ ] Verificar `wmctrl`, `wine`, `winetricks`, `zenity`, `NetworkManager-openvpn`, `network-manager-applet`
-- [ ] `inetutils` não existe → usar `telnet` + `traceroute` se necessário
-- [ ] Avaliar se vale manter RPMs diretos vs Flatpaks para apps que têm ambos
-- [ ] Zoiper: sem RPM automatizável (manter aviso atual)
+### Itens pendentes (pós-migração)
+- [ ] Testar em Fedora real (dnf, repos terceiros, Flatpak, dev tooling)
+- [ ] Verificar URLs dos RPMs diretos (Chrome, Edge, VS Code, Zoom) em máquina-alvo
+- [ ] Criar `docs/fedora.md` com guia detalhado
+- [ ] Atualizar `README.md` com link para `docs/fedora.md`
 
 ---
 
