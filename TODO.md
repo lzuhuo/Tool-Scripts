@@ -136,6 +136,26 @@ o fluxo foi trocado para **download direto + MacPorts**.
 
 ---
 
+## `instalar_zorin.sh` (Zorin OS 18.x) — ✅ revisado e completo
+
+Script alinhado à arquitetura de referência (`instalar-ubuntu-26-04.sh`) com melhorias:
+- [x] `set -uo pipefail`, `run_cmd`, `record`, contadores OK/SKIP/FAIL, resumo final.
+- [x] Idempotente (verifica `dpkg -s`, `flatpak info`, diretórios de extensões).
+- [x] Autorização gráfica persistente (`sudo-askpass` via zenity, cache 60 min).
+- [x] Logs/cache em `~/.local` (fora do repo).
+- [x] Preferência: repos oficiais → PPAs/repos terceiros → `.deb` direto → Flatpak.
+- [x] Auto-atualização opcional via `REPO_RAW_URL`.
+- [x] **Interface de progresso avançada:** cabeçalho global `Etapa X/N [XX%]`, barra por-etapa com contagem + ETA, spinner de ação atual.
+- [x] Flags: `--live-log`, `--no-color`, `-v/--verbose`, `--no-upgrade`.
+- [x] Grupos `--only`: `apt|repos|ppa|deb|flatpak|extensions|dev|manual|cleanup`.
+- [x] Dev tooling: opencode, nvm + Node LTS, .NET SDK (10.0, 8.0) com env em `~/.config/instalar-zorin/env.sh`.
+- [x] Extensões GNOME de `extensions.gnome.org` (6 extensões).
+- [x] Download manual modal para Zoiper 5.
+- [x] Documentação detalhada em `docs/zorin.md`.
+- [ ] Confirmar URLs diretas (Zoom, FDM, WiFiman, Ferdium) na máquina-alvo — o script registra FALHA por app sem abortar o restante.
+
+---
+
 ## `install_omarchy.sh` (Arch/Omarchy)
 
 - [ ] `microsip` — wrapper Wine (só Windows); avaliar remoção.

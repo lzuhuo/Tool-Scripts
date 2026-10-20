@@ -21,6 +21,11 @@ This repository contains a variety of scripts, each tailored for a specific oper
     *   A **manual browser modal** for vendors that block automated downloads (e.g. Zoiper): opens the page, waits for the file in `~/Downloads`, closes the window and installs.
     *   Optional **self-update** from a Git raw URL (set `REPO_RAW_URL`).
     *   Run `./instalar-ubuntu-26-04.sh --help` for the full option/groups list. Detailed guide: [docs/ubuntu.md](docs/ubuntu.md).
+*   `instalar_zorin.sh`: A comprehensive setup script for **Zorin OS 18.x** (Ubuntu 24.04 base). Same provisioning strategy as the Ubuntu script (official repos → PPAs / third-party APT repos → direct `.deb` → Flatpak) and the same safety guarantees (idempotent, real error handling, logs in `~/.local`, graphical sudo prompt, manual download modal, optional self-update). Highlights:
+    *   **Real progress feedback:** global stage header (`Etapa X/N` + percentage), a per-stage progress bar with item counts and **ETA**, and a spinner showing the current action — so the user always knows what is happening and how long it should take.
+    *   `--live-log`, `--no-color` and `-v/--verbose` flags for CI/non-interactive and troubleshooting use.
+    *   Dev tooling (opencode, nvm + Node LTS, .NET SDK) with env persisted in `~/.config/instalar-zorin/env.sh`.
+    *   Run `./instalar_zorin.sh --help` for the full option/groups list. Detailed guide: [docs/zorin.md](docs/zorin.md).
 *   `programs.sh`: A general-purpose script for Debian-based systems to install common applications via `apt` and `flatpak`. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 *   `lvm-free-ubuntu-server.sh`: A utility for Ubuntu Server administrators to resize an LVM partition, extending it to use all available free space in the volume group. **Warning:** Run with caution and ensure you have backups.
 
