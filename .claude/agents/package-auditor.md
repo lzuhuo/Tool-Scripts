@@ -1,7 +1,8 @@
 ---
 name: package-auditor
 description: Validates package names against official repos (apt, dnf, pacman, AUR, MacPorts, brew). Flags EOL/renamed/missing packages and suggests fixes. Use when verifying package availability or fixing package name issues in any script.
-tools: [Read, Write, Edit, Bash, WebSearch, WebFetch, Glob, Grep]
+tools: Read, Write, Edit, Bash, WebSearch, WebFetch, Glob, Grep
+model: sonnet
 ---
 
 # Package Auditor Agent
@@ -131,6 +132,11 @@ curl -s "https://formulae.brew.sh/api/formula/package-name.json"
 - Be conservative: only flag as "missing" after checking official repos
 - Be thorough: check ALL packages, not just known problem areas
 - Cite version numbers when available
+
+## File Scope & Concurrency
+- Edit only the file(s) named in your prompt — other agents may be editing other scripts in parallel.
+- Prefer **reporting over writing**: your main deliverable is a report the main session relays to `script-hardener`.
+- Before any edit, re-read the target region; if the text moved or changed unexpectedly, stop and report instead of forcing the write.
 
 ## When to Use
 

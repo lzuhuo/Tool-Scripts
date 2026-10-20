@@ -22,7 +22,6 @@ Tool-Scripts/
 ├── instalar_simplay.sh          # ⚠️ SimPlay via Wine
 ├── sql-2008.sh                  # ⚠️ Legacy OpenSSL for SQL Server 2008
 ├── lvm-free-ubuntu-server.sh    # ⚠️ Destructive LVM resize
-├── programs.sh                  # ⚠️ Generic Debian/Ubuntu
 └── docs/
     ├── ubuntu.md                # Detailed Ubuntu guide
     └── macos.md                 # Detailed macOS guide
@@ -76,44 +75,66 @@ Tool-Scripts/
 
 ## Agent Organization
 
-### Primary Agent: `provisioning-architect`
-Manages the overall provisioning strategy, coordinates sub-agents, makes architectural decisions about package sources, installation order, and cross-platform consistency.
+### Orchestration: the main session
+There is no separate "primary agent" — the main session **is** the orchestrator. It delegates via the `Task` tool, reviews sub-agent output, applies fixes, and enforces the quality gates. `.claude/agents/provisioning-architect.md` holds the architectural decision framework the main session follows (it cannot spawn agents itself). **Sub-agents never spawn other sub-agents** — only the main session calls `Task`.
 
-### Sub-Agents (Specialized, Cost-Effective)
-1. **`package-auditor`** — Validates package names against official repos (apt, dnf, pacman, MacPorts, brew), flags EOL/renamed/missing packages
-2. **`script-hardener`** — Applies safety patterns: `set -uo pipefail`, error handling, idempotency, logging, dry-run support
-3. **`progress-ui`** — Implements progress bars, spinners, ETA, live-log, verbose/quiet modes
-4. **`docs-sync`** — Keeps README.md, TODO.md, docs/*.md in sync with script changes
-5. **`ci-validator`** — Runs shellcheck, bats tests, dry-run validation in CI
-6. **`legacy-migrator`** — Migrates legacy scripts (`programs.sh`, `programs-arch-linux.sh`, etc.) to reference architecture
+### Sub-Agents (Specialized)
+They save **main-session context, not tokens**: each sub-agent runs with a fresh context, so its output doesn't pollute the conversation. Total token spend is usually the same or higher — the trade-off is focus and parallelism, not cost.
+
+| Agent | Model | Does |
+|-------|-------|------|
+| `package-auditor` | `sonnet` | Validates package names against official repos (apt, dnf, pacman, MacPorts, brew); flags EOL/renamed/missing |
+| `script-hardener` | `haiku` | Applies safety patterns: `set -uo pipefail`, error handling, idempotency, logging, dry-run |
+| `docs-sync` | `haiku` | Keeps README.md, TODO.md, docs/*.md in sync with script changes |
+| `ci-validator` | `haiku` | shellcheck, syntax, `--dry-run`, group isolation — reports pass/fail (never edits scripts) |
+| `legacy-migrator` | `sonnet` | Analyzes legacy scripts and rewrites them to the reference architecture |
+
+> Progress UI has no dedicated agent — the main session implements it (pattern in *Progress UI*).
+
+### Shared State & Concurrency (anti-clobber rules)
+Sub-agents **do not share context** — each `Task` starts fresh and cannot see another agent's output. The filesystem is the only shared state, and the **main session is the shared memory**: it holds every sub-agent's report and relays the relevant parts into the next agent's prompt. To keep two agents from rewriting the same work:
+
+1. **One file, one agent at a time** — never spawn two agents with overlapping scopes in the same wave; batch only disjoint file sets.
+2. **Serialize dependent steps** — e.g. `package-auditor` → `script-hardener` on the same script: wait for the result, then spawn the next.
+3. **Scope every prompt** — each `Task` prompt names the exact files the agent may touch ("Edit only `instalar-fedora.sh`") and forbids the rest.
+4. **Edit, don't rewrite** — on shared scripts agents use targeted `Edit` (exact-match), never full-file `Write`; if another agent changed the text, the edit fails loudly instead of clobbering. Full-file `Write` is for new files only.
+5. **Checkpoint between waves** — after each agent: `git diff --stat`, and commit when the step passes its quality gates, so overlap shows up immediately and is revertible.
+6. **Stop on conflict** — an agent whose `Edit` fails on expected text re-reads the file; if it changed unexpectedly, it stops and reports instead of forcing the write.
 
 ## Workflows
 
 ### Adding/Updating a Script
-1. `package-auditor` verifies all package names for target distro
+1. Main session: verify package names for target distro (delegate to `package-auditor` when the list is large)
 2. `script-hardener` applies reference architecture patterns
-3. `progress-ui` adds progress reporting
-4. `docs-sync` updates documentation
-5. `ci-validator` runs validation
+3. Main session: add progress reporting (pattern in *Progress UI*)
+4. `docs-sync` updates README.md, TODO.md, docs/*.md
+5. `ci-validator` runs shellcheck + `--dry-run` + idempotency checks
 
 ### Fixing Legacy Scripts
-1. `legacy-migrator` analyzes script against reference
+1. Main session: analyze script against reference architecture
 2. `package-auditor` fixes package names
 3. `script-hardener` applies patterns
 4. `docs-sync` updates TODO.md (marks items done)
+5. `ci-validator` validates
+
+### Migrating a Legacy Script (full pipeline, one file at a time)
+1. `package-auditor`: audit all package names
+2. `legacy-migrator`: rewrite to reference architecture (applying the auditor's fixes)
+3. `ci-validator`: quality gates
+4. `docs-sync`: TODO.md, README.md, docs/<distro>.md
+5. Main session: `git diff --stat` → commit (one commit per migrated script)
 
 ### Cross-Platform Consistency Check
 1. `package-auditor` compares package lists across distros
-2. `provisioning-architect` decides on canonical package set
+2. Main session: decide on canonical package set (framework: `provisioning-architect`)
 3. `docs-sync` updates comparison tables
 
 ## Configuration Files
 
-### `.claude/settings.json`
-Project-specific permissions and hooks.
-
 ### `.claude/agents/*.md`
-Agent definitions with specialized prompts.
+Agent definitions (name, tools, model, specialized prompts). Currently: `provisioning-architect`, `package-auditor`, `script-hardener`, `docs-sync`, `ci-validator`, `legacy-migrator`.
+
+> No `.claude/settings.json` exists yet — add one when project permissions/hooks are needed.
 
 ## Key Conventions
 
@@ -122,34 +143,14 @@ Agent definitions with specialized prompts.
 - Config arrays: `UPPER_SNAKE_CASE` (e.g., `APT_PACKAGES`, `THIRD_PARTY_REPOS`)
 - Functions: `snake_case` (e.g., `apt_install`, `install_opencode`)
 
-### Error Handling
-```bash
-run_cmd() {
-    local label="$1" logfile="$2"; shift 2
-    if [ "$DRY_RUN" -eq 1 ]; then record SKIP "$label (dry-run)"; return 0; fi
-    spinner_start "$label"
-    if "$@" >>"$logfile" 2>&1; then record OK "$label"; return 0; fi
-    record FAIL "$label (veja $logfile)"; return 1
-}
-```
-
-### Progress Bar (from Zorin script)
-```bash
-draw_bar() {
-    [ -t 2 ] || return 0
-    local label="$1" current="$2" total="$3"
-    local pct=$(( current * 100 / total ))
-    # ... renders [████░░░] 45% 9/20 ~30s
-}
-```
-
-### Graphical Sudo
-```bash
-ensure_askpass() {
-    # Creates /usr/local/bin/sudo-askpass using zenity/kdialog
-    # Configures /etc/sudo.conf, /etc/sudoers.d/, /etc/profile.d/
-}
-```
+### Core Functions (single source of truth: `.claude/agents/script-hardener.md`)
+| Function | Purpose |
+|----------|---------|
+| `run_cmd(label, logfile, cmd...)` | spinner + per-command logfile + OK/SKIP/FAIL record; SKIPs under `--dry-run` |
+| `record(status, label)` | counters, colored output, `summary.log` |
+| `draw_bar(label, current, total)` | `[████░░░] 45% 9/20 ~30s`, TTY-only |
+| `confirm(question)` | respects `-y`; zenity/kdialog/osascript when no TTY |
+| `ensure_askpass()` / `setup_sudo()` / `prime_sudo()` | graphical sudo (`zenity`/`kdialog`/`osascript`) without TTY |
 
 ## Testing Checklist
 

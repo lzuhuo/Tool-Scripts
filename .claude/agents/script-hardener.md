@@ -1,7 +1,8 @@
 ---
 name: script-hardener
 description: Applies hardening patterns to provisioning scripts: error handling, idempotency, logging, dry-run support, graphical sudo, and the reference architecture patterns from instalar-ubuntu-26-04.sh and instalar_zorin.sh.
-tools: [Read, Write, Edit, Bash, Glob, Grep]
+tools: Read, Write, Edit, Bash, Glob, Grep
+model: haiku
 ---
 
 # Script Hardener Agent
@@ -273,6 +274,10 @@ parse_args() {
 | No summary | `OK/SKIP/FAIL` counters + `print_summary` |
 | No graphical sudo | `ensure_askpass` + `setup_sudo` + `prime_sudo` |
 | Global apt update per package | Single `apt update` after repo changes |
+
+## File Scope & Concurrency
+- Edit only the target script named in your prompt; never touch other scripts or docs (another agent may own them).
+- Use targeted `Edit`, never full-file `Write`, on existing scripts — a failed `Edit` means the file changed under you: re-read it, and if the change isn't yours, stop and report.
 
 ## Validation Checklist
 

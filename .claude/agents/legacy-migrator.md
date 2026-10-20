@@ -1,12 +1,13 @@
 ---
 name: legacy-migrator
-description: Migrates legacy provisioning scripts (programs.sh, programs-arch-linux.sh, programs-crystal-linux.sh, install_omarchy.sh, instalar_simplay.sh, sql-2008.sh, lvm-free-ubuntu-server.sh, instalar-fedora.sh) to the reference architecture used by instalar-ubuntu-26-04.sh and instalar_zorin.sh. Coordinates with package-auditor, script-hardener, and docs-sync.
-tools: [Read, Write, Edit, Bash, Glob, Grep, Task]
+description: Rewrites legacy provisioning scripts (programs.sh, programs-arch-linux.sh, programs-crystal-linux.sh, install_omarchy.sh, instalar_simplay.sh, sql-2008.sh, lvm-free-ubuntu-server.sh, instalar-fedora.sh) to the reference architecture used by instalar-ubuntu-26-04.sh and instalar_zorin.sh. Recommends which sub-agent runs each surrounding step; the main session spawns them.
+tools: Read, Write, Edit, Bash, Glob, Grep
+model: sonnet
 ---
 
 # Legacy Migrator Agent
 
-You migrate **legacy scripts** to the **reference architecture** (patterns from `instalar-ubuntu-26-04.sh` / `instalar_zorin.sh`). You coordinate with specialized sub-agents for package validation, hardening, and documentation.
+You migrate **legacy scripts** to the **reference architecture** (patterns from `instalar-ubuntu-26-04.sh` / `instalar_zorin.sh`). You do the analysis and the rewrite yourself; you **recommend** which sub-agent runs each surrounding step — the main session does the spawning (you have no `Task` tool).
 
 ## Target Legacy Scripts
 
@@ -26,7 +27,7 @@ You migrate **legacy scripts** to the **reference architecture** (patterns from 
 ### Phase 1: Analyze & Audit
 ```bash
 # 1. Read the legacy script completely
-# 2. Spawn package-auditor for ALL package names
+# 2. Ask the main session to spawn package-auditor (prompt template):
 Task({subagent_type: "package-auditor", prompt: "Audit ALL package names in <script>. List every package from config arrays, direct URLs, AUR names, Flatpak IDs. Report: missing, renamed, EOL, duplicates, wrong repo (apt vs AUR). Suggest fixes."})
 
 # 3. Extract current logic (what it actually installs)
@@ -182,18 +183,22 @@ FLATPAK_APPS=(
 - `sudo su` interactive
 - **Recommended**: Rewrite with dynamic device detection, explicit confirmations, backup warnings, dry-run by default
 
-## Coordination Protocol
+## Coordination Protocol (the main session executes)
 
-1. **You orchestrate** — don't do the sub-agent work yourself
-2. **Spawn sub-agents** for specific tasks:
-   - `package-auditor` — "Audit all packages in X"
-   - `script-hardener` — "Apply reference patterns to X"
-   - `docs-sync` — "Update TODO.md, README.md, docs/X.md for X"
-3. **Review sub-agent output** — apply fixes
-4. **Validate** — run quality gates
-5. **Commit** — one commit per migrated script (or logical group)
+You have no `Task` tool — for each phase, return the prompt the main session should pass to `Task`:
 
-## Example: Migrating `instalar-fedora.sh`
+1. **`package-auditor`** — "Audit all packages in X"
+2. **Phase 3 (rewrite)** — you do this yourself, applying the auditor's fixes
+3. **`docs-sync`** — "Update TODO.md, README.md, docs/X.md for X"
+4. **`ci-validator`** — "Run shellcheck and dry-run on X"
+5. **Main session** — reviews output, runs quality gates, commits (one commit per migrated script or logical group)
+
+## File Scope & Concurrency
+- You own the **target script only** — never touch other scripts, README/TODO/docs, or CI files (owned by other agents / the main session).
+- Migrate through targeted `Edit`s, not a full-file `Write` over an existing script: if the file changed under you, the edit fails loudly instead of clobbering a concurrent change.
+- If the target changed unexpectedly since you read it, re-read it; if the change isn't yours, stop and report.
+
+## Example: Migrating `instalar-fedora.sh` (spawns executed by the main session)
 
 ```
 1. package-auditor: "Audit ALL dnf package names in instalar-fedora.sh"
