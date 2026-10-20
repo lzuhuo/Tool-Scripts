@@ -35,6 +35,7 @@ This repository contains a variety of scripts, each tailored for a specific oper
 #### **Arch Linux & Derivatives**
 *   `programs-arch-linux.sh`: An extensive setup script for Arch Linux. It installs the `yay` AUR helper, PipeWire audio, development tools, a set of useful GNOME extensions, and other common applications from both official repositories and the AUR. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
 *   `programs-crystal-linux.sh`: A setup script specifically for Crystal Linux (an Arch derivative). It uses `pacman` and Crystal's `ame` helper. **Note:** Requires manual editing of `/etc/pacman.conf` before execution. ⚠️ Contains outdated items — see [TODO.md](TODO.md).
+*   `instalar-arch.sh`: Nova versão reescrita seguindo a arquitetura de referência (`instalar-ubuntu-26-04.sh`/`instalar_zorin.sh`). Estratégia: repositórios oficiais (`pacman`) → AUR (`yay`) → Flatpak. Inclui 15 AUR packages corretamente nomeados, 5 extensões GNOME via AUR com nomes corrigidos (compiz*Effect-git, vitals-git), tilix via AUR (não pacman), excludes azuredatastudio-bin EOL. CLI: `-y`, `-n/--dry-run`, `--no-upgrade`, `--no-self-update`, `--only <grupo>` (`pacman|yay|flatpak|extensions|dev|cleanup`), `--help`. Guia: [docs/arch.md](docs/arch.md).
 
 #### **Special Purpose / Compatibility**
 *   `instalar_simplay.sh`: A graphical (Zenity-based) installer that sets up the Windows application 'SimPlay' on Linux using Wine. It handles dependency installation (Wine, Winetricks), creates a dedicated Wine prefix, and adds a desktop shortcut.
