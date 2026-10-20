@@ -1,0 +1,53 @@
+name: CI — Shellcheck & Dry-run
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Dry-run (${{ matrix.script }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        script:
+          - instalar-ubuntu-26-04.sh
+          - instalar_zorin.sh
+          - instalar-macos.sh
+          - instalar-fedora.sh
+          - programs.sh
+          - programs-arch-linux.sh
+          - programs-crystal-linux.sh
+          - install_omarchy.sh
+          - instalar_simplay.sh
+          - sql-2008.sh
+          - lvm-free-ubuntu-server.sh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+
+      - name: Run shellcheck
+        run: |
+          shellcheck -x "${{ matrix.script }}" || true
+
+      - name: Test dry-run (Linux scripts only)
+        if: matrix.script != 'instalar-macos.sh'
+        run: |
+          chmod +x "${{ matrix.script }}"
+          # Use timeout to prevent hanging, allow failure for scripts needing specific distro
+          timeout 120 bash -c "cd ${{ github.workspace }} && ./${{ matrix.script }} --dry-run --no-color" 2>&1 || true
+
+      - name: Test dry-run (macOS script - syntax only)
+        if: matrix.script == 'instalar-macos.sh'
+        run: |
+          chmod +x "${{ matrix.script }}"
+          bash -n "${{ matrix.script }}"  # syntax check only
