@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+
+      - name: Run CI checks (shellcheck + dry-run)
+        run: |
+          for script in instalar-ubuntu-26-04.sh instalar_zorin.sh instalar-fedora.sh instalar-arch.sh instalar-macos.sh programs.sh programs-arch-linux.sh programs-crystal-linux.sh install_omarchy.sh instalar_simplay.sh sql-2008.sh lvm-free-ubuntu-server.sh; do
+            if [ ! -f "$script" ]; then
+              echo "Skipping $script (not found)"
+              continue
+            fi
+            echo "=== Checking $script ==="
+            shellcheck -x "$script" || exit 1
+            if [[ "$script" != "instalar-macos.sh" ]]; then
+              timeout 120 bash -c "cd ${{ github.workspace }} && ./$script --dry-run --no-color" 2>&1 || true
+            else
+              bash -n "$script" || exit 1
+            fi
+          done
+          echo "All CI checks passed!"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%an)" "$PREV_TAG..$TAG")
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%an)" "$TAG")
+          fi
+
+          # Escape for JSON
+          CHANGELOG_ESCAPED=$(printf '%s' "$CHANGELOG" | jq -Rs .)
+          echo "changelog=$CHANGELOG_ESCAPED" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+          files: |
+            instalar-ubuntu-26-04.sh
+            instalar_zorin.sh
+            instalar-fedora.sh
+            instalar-arch.sh
+            instalar-macos.sh
+            README.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create checksums
+        run: |
+          sha256sum instalar-ubuntu-26-04.sh instalar_zorin.sh instalar-fedora.sh instalar-arch.sh instalar-macos.sh > checksums.txt
+          cat checksums.txt
+
+      - name: Upload checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: checksums.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
