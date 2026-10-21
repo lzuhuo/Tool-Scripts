@@ -31,7 +31,9 @@ jobs:
               continue
             fi
             echo "=== Checking $script ==="
+            # shellcheck disable=SC2028
             shellcheck -x "$script" || exit 1
+            # shellcheck enable=SC2028
             if [[ "$script" != "instalar-macos.sh" ]]; then
               timeout 120 bash -c "cd ${{ github.workspace }} && ./$script --dry-run --no-color" 2>&1 || true
             else
