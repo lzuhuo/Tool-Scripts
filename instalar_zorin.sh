@@ -92,10 +92,11 @@ PPAS=(
 )
 
 # --- Pacotes .deb avulsos -------------------------------------------------
-# Formato: "Nome|URL|arquivo_local|pacote_dpkg"
+# Formato: "Nome|URL|arquivo_local|pacote_dpkg[|espelhos]"
+#   espelhos: URLs alternativas separadas por vírgula, usadas se a principal falhar.
 DIRECT_DEBS=(
     "Zoom|https://zoom.us/client/latest/zoom_amd64.deb|zoom_amd64.deb|zoom"
-    "Free Download Manager|https://files2.freedownloadmanager.org/6/latest/freedownloadmanager.deb|freedownloadmanager.deb|freedownloadmanager"
+    "Free Download Manager|https://files2.freedownloadmanager.org/6/latest/freedownloadmanager.deb|freedownloadmanager.deb|freedownloadmanager|https://dn3.freedownloadmanager.org/6/latest/freedownloadmanager.deb"
     "Ferdium|gh:ferdium/ferdium-app|ferdium_amd64.deb|ferdium"
     "WiFiman Desktop|https://desktop.wifiman.com/wifiman-desktop-1.3.0-amd64.deb|wifiman-desktop.deb|wifiman-desktop"
 )
@@ -108,12 +109,7 @@ MANUAL_DOWNLOADS=(
 
 # --- Extensões GNOME (extensions.gnome.org) ------------------------------
 GNOME_EXTENSIONS=(
-    blur-my-shell@aunetx
-    dash-to-dock@micxgx.gmail.com
     Vitals@CoreCoding.com
-    show-desktop-button@amivaleo
-    compiz-alike-magic-lamp-effect@hermes83.github.com
-    compiz-windows-effect@hermes83.github.com
 )
 
 # --- Ferramentas de desenvolvimento --------------------------------------
@@ -802,14 +798,90 @@ install_manual_downloads() {
     stage_done
 }
 
+# Verifica se o arquivo é um .deb completo (não truncado).
+# `dpkg-deb -I` lê só o cabeçalho e aceita arquivo parcial; o --fsys-tarfile
+# lê o pacote inteiro, então detecta download interrompido.
+deb_is_valid() {
+    [ -s "$1" ] || return 1
+    dpkg-deb -I "$1" >/dev/null 2>&1 || return 1
+    dpkg-deb --fsys-tarfile "$1" >/dev/null 2>&1 || return 1
+    return 0
+}
+
+# Baixa (ou retoma) um .deb. Opções extras são repassadas ao curl.
+deb_fetch() {
+    local dest="$1" url="$2"; shift 2
+    if have curl; then
+        curl -fL --connect-timeout 20 --retry 2 --retry-delay 3 "$@" \
+            -C - -o "$dest" "$url" >>"$LOG_DIR/deb_download.log" 2>&1
+    else
+        wget -c -q --timeout=60 --tries=2 -O "$dest" "$url" \
+            >>"$LOG_DIR/deb_download.log" 2>&1
+    fi
+}
+
+# --- Download de .deb (resume + retries + espelhos) -----------------------
+# Uso: download_deb <destino> <url> [url_alternativa...]
+# 1) Reaproveita o arquivo se já for um .deb íntegro.
+# 2) Retoma download parcial (-C -) e tenta de novo em caso de queda.
+# 3) Com espelhos, abandona cedo o servidor lento e testa o próximo.
+# 4) Se todos falharem, última passada sem corte por velocidade: é melhor
+#    baixar devagar do que falhar. O parcial é mantido para a próxima execução.
+download_deb() {
+    local dest="$1"; shift
+    local urls=("$@") url attempt rc
+    local opts=()
+
+    [ "${#urls[@]}" -eq 0 ] && return 1
+
+    if deb_is_valid "$dest"; then
+        return 0
+    fi
+
+    if [ "${#urls[@]}" -gt 1 ]; then
+        opts=(--speed-limit 51200 --speed-time 30)
+    fi
+
+    for url in "${urls[@]}"; do
+        for attempt in 1 2 3; do
+            deb_fetch "$dest" "$url" "${opts[@]}"
+            rc=$?
+
+            if [ "$rc" -eq 0 ] && deb_is_valid "$dest"; then
+                return 0
+            fi
+
+            # 33/36: o servidor não aceita retomada — recomeça do zero.
+            if [ "$rc" -eq 33 ] || [ "$rc" -eq 36 ]; then
+                rm -f "$dest"
+            fi
+            sleep 2
+        done
+        info "Espelho falhou: $url" >>"$LOG_DIR/deb_download.log" 2>&1
+    done
+
+    # Última tentativa, sem limite de velocidade.
+    info "Tentando novamente sem corte por velocidade..." >>"$LOG_DIR/deb_download.log" 2>&1
+    for url in "${urls[@]}"; do
+        deb_fetch "$dest" "$url"
+        if [ "$?" -eq 0 ] && deb_is_valid "$dest"; then
+            return 0
+        fi
+    done
+
+    info "Todas as tentativas de download falharam para $(basename "$dest")" \
+        >>"$LOG_DIR/deb_download.log" 2>&1
+    return 1
+}
+
 install_direct_debs() {
     begin_stage 7 14 "Pacotes .deb avulsos"
     [ "${#DIRECT_DEBS[@]}" -eq 0 ] && { record SKIP "Pacotes .deb (lista vazia)"; stage_done; return; }
 
-    local entry name url file pkg dest real_url total="${#DIRECT_DEBS[@]}" idx=0
+    local entry name url file pkg extra dest real_url total="${#DIRECT_DEBS[@]}" idx=0
     for entry in "${DIRECT_DEBS[@]}"; do
         idx=$((idx + 1))
-        IFS='|' read -r name url file pkg <<< "$entry"
+        IFS='|' read -r name url file pkg extra <<< "$entry"
         dest="$DEB_DIR/$file"
 
         if pkg_installed "$pkg"; then
@@ -836,15 +908,23 @@ install_direct_debs() {
             fi
         fi
 
-        # Rebaixa se o arquivo local estiver vazio/corrompido.
-        if [ -n "$real_url" ] && [ ! -s "$dest" ]; then
-            spinner_start "Baixando $name..."
-            if have curl; then
-                curl -fL --retry 3 -o "$dest" "$real_url" >>"$LOG_DIR/deb_download.log" 2>&1 \
-                    || { record FAIL "Download $name (veja $LOG_DIR/deb_download.log)"; draw_bar "Instalando .deb" "$idx" "$total"; continue; }
-            else
-                wget -qO "$dest" "$real_url" >>"$LOG_DIR/deb_download.log" 2>&1 \
-                    || { record FAIL "Download $name (veja $LOG_DIR/deb_download.log)"; draw_bar "Instalando .deb" "$idx" "$total"; continue; }
+        # Baixa (ou reaproveita) o .deb, com resume, retries e espelhos.
+        if [ -n "$real_url" ]; then
+            local dl_urls=("$real_url") mirror _mirrors=()
+            if [ -n "$extra" ]; then
+                IFS=',' read -r -a _mirrors <<< "$extra"
+                for mirror in "${_mirrors[@]}"; do
+                    [ -n "$mirror" ] && dl_urls+=("$mirror")
+                done
+            fi
+
+            if ! deb_is_valid "$dest"; then
+                spinner_start "Baixando $name..."
+            fi
+            if ! download_deb "$dest" "${dl_urls[@]}"; then
+                record FAIL "Download $name (veja $LOG_DIR/deb_download.log)"
+                draw_bar "Instalando .deb" "$idx" "$total"
+                continue
             fi
         fi
 
@@ -897,6 +977,54 @@ gnome_shell_major() {
     gnome-shell --version 2>/dev/null | grep -oE '[0-9]+' | head -n1
 }
 
+# Ativa/desativa extensão gravando no gsettings.
+# `gnome-extensions enable` conversa com o Shell em execução, que não conhece
+# extensões criadas depois do seu início — por isso ele falha silenciosamente.
+# E `gnome-extensions disable` grava em disabled-extensions, lista que tem
+# precedência e impede a reativação depois. Por isso usamos só o gsettings.
+# Uso: gnome_extension_set_enabled <uuid> <true|false>
+gnome_extension_set_enabled() {
+    local uuid="$1" want="$2" current item updated=""
+
+    current="$(gsettings get org.gnome.shell enabled-extensions 2>/dev/null)" || return 1
+
+    if [ "$want" = "true" ]; then
+        # Remove de disabled-extensions, senão nunca ativa.
+        local desativadas
+        desativadas="$(gsettings get org.gnome.shell disabled-extensions 2>/dev/null)" || desativadas=""
+        case "$desativadas" in
+            *"'$uuid'"*)
+                updated=""
+                for item in $(printf '%s' "$desativadas" | grep -oE "'[^']+'"); do
+                    [ "$item" = "'$uuid'" ] && continue
+                    updated="${updated:+$updated, }$item"
+                done
+                gsettings set org.gnome.shell disabled-extensions "[$updated]" 2>/dev/null
+                ;;
+        esac
+    fi
+
+    if [ "$want" = "true" ] && case "$current" in *"'$uuid'"*) true ;; *) false ;; esac; then
+        return 0   # já ativa
+    fi
+
+    updated=""
+    for item in $(printf '%s' "$current" | grep -oE "'[^']+'"); do
+        [ "$item" = "'$uuid'" ] && continue
+        updated="${updated:+$updated, }$item"
+    done
+    if [ "$want" = "true" ]; then
+        updated="${updated:+$updated, }'$uuid'"
+    fi
+
+    gsettings set org.gnome.shell enabled-extensions "[$updated]" 2>/dev/null
+}
+
+# Ativa a extensão instalada (idempotente).
+gnome_extension_activate() {
+    gnome_extension_set_enabled "$1" true
+}
+
 install_gnome_extensions() {
     begin_stage 10 14 "Extensões GNOME"
     [ "${#GNOME_EXTENSIONS[@]}" -eq 0 ] && { record SKIP "Extensões GNOME (lista vazia)"; stage_done; return; }
@@ -906,6 +1034,8 @@ install_gnome_extensions() {
     local shell_ver; shell_ver="$(gnome_shell_major)"
     [ -z "$shell_ver" ] && { record FAIL "Não foi possível detectar a versão do GNOME Shell"; stage_done; return; }
     info "GNOME Shell detectado: $shell_ver"
+    # Garante que extensões de usuário não estejam globalmente desativadas.
+    gsettings set org.gnome.shell disable-user-extensions false 2>/dev/null || true
 
     local uuid info_json dl dest total="${#GNOME_EXTENSIONS[@]}" idx=0
     for uuid in "${GNOME_EXTENSIONS[@]}"; do
@@ -913,6 +1043,7 @@ install_gnome_extensions() {
         dest="${XDG_DATA_HOME:-$HOME/.local/share}/gnome-shell/extensions/$uuid"
 
         if [ -d "$dest" ]; then
+            gnome_extension_activate "$uuid"
             record SKIP "Extensão $uuid (já instalada)"; draw_bar "Extensões" "$idx" "$total"; continue
         fi
         if [ "$DRY_RUN" -eq 1 ]; then
@@ -935,14 +1066,14 @@ install_gnome_extensions() {
             && unzip -q -o "$dest/ext.zip" -d "$dest" >>"$LOG_DIR/extensions.log" 2>&1; then
             rm -f "$dest/ext.zip"
             record OK "Extensão $uuid instalada"
-            gnome-extensions enable "$uuid" >/dev/null 2>&1 || true
+            gnome_extension_activate "$uuid"
         else
             rm -rf "$dest"
             record FAIL "Extensão $uuid (falha no download/extração; veja $LOG_DIR/extensions.log)"
         fi
         draw_bar "Extensões" "$idx" "$total"
     done
-    info "Algumas extensões só ficam ativas após sair e entrar novamente."
+    info "Extensões já ativadas nas configurações; efeito completo após sair e entrar."
     stage_done
 }
 
